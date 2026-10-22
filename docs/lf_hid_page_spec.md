@@ -1,5 +1,12 @@
 # HID Prox 页面文档
 
+> 原始设计参考（PR #27 之前）。下文中文图示、示例和功能目标不等于当前实现或实卡
+> 验证情况；新增/修改界面须使用 [中英文 ARB 与校验契约](localization.md)。
+> 当前使用与支持范围见 [README](../README.md)。
+>
+> `lf hid brute` 针对读卡器枚举设施码/卡号，不执行密码学密钥恢复；当前英文
+> “Key recovery” 标签的待修正问题见[已知问题](localization.md#known-limitations)。
+
 ## 1. 页面概述
 
 ### 1.1 功能目标

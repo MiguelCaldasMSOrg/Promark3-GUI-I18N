@@ -28,7 +28,9 @@
 - Added English and Simplified Chinese ARB localizations, localized framework
   delegates, immediate language switching with a persistent system-default
   option, locale-aware command help and dump analysis, translation checks,
-  bilingual UI coverage and an English README.
+  bilingual UI coverage and an English README. The current catalogs contain
+  700 messages per language; native OS dialogs and raw client output are not
+  translated by the GUI.
 
 - 从当前客户端 96 个帮助分组同步 1033 个终端命令条目，并提供 `tools/sync_command_catalog.dart` 更新工具；已有中文说明保留。
 
@@ -49,5 +51,5 @@
 - Fix: Correctly detect found MIFARE keys in `lib/parsers/output_parser.dart` (was incorrectly checking a numeric flag).
 - Fix: Improve `sendCommandAndWait` in `lib/backend/desktop_cli/pm3_process.dart` to wait for table terminators (ensures `hf mf autopwn` full output including final key table is captured).
 
-[Unreleased]: https://github.com/AKCX2002/Promark3-GUI/compare/v0.0.3...HEAD
-[0.0.3]: https://github.com/AKCX2002/Promark3-GUI/compare/v0.0.3-alpha...v0.0.3
+[Unreleased]: https://github.com/Babel36acl/Promark3-GUI/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/Babel36acl/Promark3-GUI/compare/v0.0.3-alpha...v0.0.3

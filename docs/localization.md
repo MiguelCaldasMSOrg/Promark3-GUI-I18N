@@ -1,5 +1,20 @@
 # Localization
 
+## PR #27 scope
+
+PR #27 adds English alongside Simplified Chinese without changing PM3 commands,
+protocol identifiers, dump formats or raw client output. There are currently
+700 messages in each catalog; `tools/check_localizations.dart` reports the
+authoritative count. This is development/Unreleased content, not evidence that
+an older release archive contains these features.
+
+Choose **Settings → Language** to follow the system, select **简体中文**, or
+select **English**. Unsupported system languages fall back to English; Chinese
+regional/script variants use the shipped Simplified Chinese bundle.
+Framework menus/dialogs use the app locale, while native file dialogs keep the
+OS language. Previously captured terminal output is not rewritten when the
+language changes.
+
 ## Design
 
 This project follows Flutter's official
@@ -25,6 +40,11 @@ This project follows Flutter's official
   generated `AppLocalizations` without pulling Flutter into the process layer.
   Keep these defaults in sync with the Chinese ARB catalog; the message-contract
   tests verify every process message.
+- Staging `CommandCard` instances inherit the active localizations before
+  validating imported blocks or keys. Failed draft/card imports are atomic.
+- The DESFire Applications tab uses `desfireApplicationsTab`; the editor's Apply
+  verb remains `messageApply`. Shared source-language spelling is not sufficient
+  reason to merge resources.
 
 ## Editing messages
 
@@ -69,9 +89,39 @@ metadata and untranslated Chinese in the English catalog. `gen-l10n` validates
 ICU syntax and typed placeholders. Tests cover both languages on all 30 pages,
 live switching, data retention, persistence, failure reporting, locale fallback,
 framework strings, command-help language and locale-aware analysis.
+The current page/tab smoke tests use a 1500 × 1100 viewport; the dedicated
+DESFire label tests use 1200 × 900. These are not a substitute for exercising
+default/smaller desktop windows, text scaling, dialogs and real hardware.
+
+The focused regression files are:
+
+| Feature | Coverage |
+|---|---|
+| Preference loading, serialized saves and retries | `test/l10n/app_locale_controller_test.dart` |
+| Directory exception conversion and diagnostics | `test/services/locale_settings_store_test.dart` |
+| Startup Settings error, switching and page/tab rendering | `test/l10n/localization_test.dart` |
+| Standalone message defaults and Flutter adapter | `test/l10n/pm3_process_messages_test.dart` |
+| English import errors and atomicity | `test/models/command_card_test.dart` |
+| Applications versus Apply | `test/ui/hf_mfdes_page_test.dart` |
+| Actual standalone Dart usage/failure paths | `test/tools/sync_command_catalog_test.dart` |
+
+The existing Windows batch-handshake fixture has an intermittent failure that
+was also reproduced against unchanged upstream code. Report it separately from
+new regressions; do not weaken its assertions or claim a fully clean run when
+it fails. Linux builds and real-device operations require their own evidence.
 
 Use wrapping or flexible layouts for captions that expand in translation.
 Do not shorten safety warnings to make them fit.
+
+## Known limitations
+
+The feature-quality review of PR #27 at `d126451` identified one outstanding
+English label issue in [the HID Prox page](../lib/ui/pages/lf_hid_page.dart):
+the third tab says **Key recovery**, but `lf hid brute` probes a reader using
+facility-code/card-number combinations; it does not recover cryptographic keys.
+That workflow needs its own reader-brute-force labels rather than reusing the
+key-recovery wording. This documentation refresh records the issue; it does not
+change the application code.
 
 ## Adding a language
 
@@ -99,6 +149,26 @@ unwritable preferences produce an explicit Settings error.
 Path-provider directory-lookup exceptions are converted to storage errors while
 preserving their diagnostics and stack traces. Initialization can therefore
 continue to the UI, and failed writes do not prevent later saves from retrying.
+The current-session selection remains active after a save failure, but is not
+guaranteed to survive restart until a later save succeeds. Resolve the
+directory/permission problem and choose a language again to retry; there is no
+automatic background retry or silent fallback to the working directory.
+
+The stored JSON is `{"language":"en"}`, `{"language":"zh"}` or
+`{"language":null}`. Do not translate these codes or the `language` field name.
+
+## Standalone command-catalog synchronization
+
+After `flutter pub get`, `dart run tools\sync_command_catalog.dart` runs on the
+standalone Dart VM. With no arguments it prints usage and exits with code 2;
+with a client it connects, collects read-only help and writes the snapshot on
+success (exit 0). Connection/collection errors return 1.
+
+For Windows, pass the distribution-root `pm3.bat`; for a native client, also
+pass its port. This tool does not read `language.json`: it uses the pure-Dart
+Chinese diagnostic defaults. It does not load generated Flutter localizations
+or translate client output. GUI command help separately selects the bundled
+English/Chinese YAML and augments it with the client snapshot.
 
 Language settings are separate from Proxmark3 launch settings and do not change
 session records, device data, dump formats or client configuration.
