@@ -10,6 +10,7 @@ import 'package:pm3gui/services/pm3_session_recorder.dart';
 import 'package:pm3gui/state/app_state.dart';
 import 'package:pm3gui/state/connection_state.dart' as connection;
 import 'package:pm3gui/ui/widgets/command_card_editor.dart';
+import '../support/localized_test_app.dart';
 
 void main() {
   testWidgets(
@@ -45,7 +46,8 @@ void main() {
         }));
     Widget editor() => ChangeNotifierProvider.value(
         value: app,
-        child: const MaterialApp(home: Scaffold(body: CommandCardEditor())));
+        child:
+            const LocalizedTestApp(home: Scaffold(body: CommandCardEditor())));
     await tester.pumpWidget(editor());
     await tester.enterText(find.byType(TextField), 'hf mf chk --1k');
     await tester.tap(find.text('执行'));

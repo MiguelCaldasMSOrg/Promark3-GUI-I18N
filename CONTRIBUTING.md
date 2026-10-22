@@ -27,6 +27,14 @@ flutter test --no-pub
 
 涉及桌面打包或平台代码时，再执行对应平台的 `flutter build`。涉及真实硬件行为时，请说明设备型号、只读/写入范围和实际验证结果；不要把模拟测试写成实机通过。
 
+## Localization
+
+English and Simplified Chinese resources are maintained in `lib/l10n/*.arb`.
+Follow [the translation workflow](docs/localization.md), update both catalogs,
+and run `flutter gen-l10n` and `dart run tools/check_localizations.dart` before
+the existing analysis/tests. Never edit generated localization Dart files or
+translate PM3 command syntax, protocol identifiers or raw hardware output.
+
 ## Pull Request
 
 - 保持改动聚焦，并说明问题、解决方式和验证结果。

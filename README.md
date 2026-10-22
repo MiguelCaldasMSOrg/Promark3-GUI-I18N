@@ -1,5 +1,7 @@
 # PM3 GUI
 
+**简体中文** | [English](README.en.md)
+
 <div align="center">
   <a href="https://github.com/AKCX2002/Promark3-GUI/actions/workflows/build.yml"><img src="https://github.com/AKCX2002/Promark3-GUI/actions/workflows/build.yml/badge.svg" alt="Build"/></a>
   <a href="https://github.com/AKCX2002/Promark3-GUI/releases"><img src="https://img.shields.io/github/v/release/AKCX2002/Promark3-GUI?display_name=tag" alt="Release"/></a>
@@ -12,6 +14,12 @@ PM3 GUI 是面向 Proxmark3 的 GPL-3.0 开源桌面图形客户端，提供常�
 > ⚠️ **Alpha 说明**：当前版本仍在迭代，页面和行为可能调整。
 
 请仅对自有或已明确授权的设备、卡片和系统执行操作，并遵守所在地适用法律。
+
+## 界面语言
+
+在“设置 → 语言”中选择“跟随系统”、“简体中文”或“English”。更改立即生效，无需重启或断开设备；不受支持的系统语言使用英语。语言设置独立保存，不影响现有 PM3 配置、草稿和设备数据。命令帮助说明也会切换语言；原始客户端输出、命令语法和导出格式保持不变。
+
+翻译维护和新增语言请参阅 [Localization](docs/localization.md)。
 
 ## 平台与范围
 
@@ -90,14 +98,14 @@ PM3EASY512K 等已由官方 [RfidResearchGroup/proxmark3](https://github.com/Rfi
 
 ### 环境要求
 
-- Flutter 3.27+
-- Dart 3.6+
+- Flutter stable（本次验证使用 3.47.7）
+- 随 Flutter 提供的 Dart SDK（本次验证使用 3.13.5）
 - 官方 Proxmark3 client：Windows 发行包根目录 `pm3.bat`，或 Linux `proxmark3`
 
 ### 运行
 
 ```bash
-git clone https://github.com/AKCX2002/Promark3-GUI.git
+git clone https://github.com/Babel36acl/Promark3-GUI.git
 cd Promark3-GUI
 flutter pub get
 flutter run -d windows

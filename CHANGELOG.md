@@ -13,6 +13,11 @@
 
 ### Added
 
+- Added English and Simplified Chinese ARB localizations, localized framework
+  delegates, immediate language switching with a persistent system-default
+  option, locale-aware command help and dump analysis, translation checks,
+  bilingual UI coverage and an English README.
+
 - 从当前客户端 96 个帮助分组同步 1033 个终端命令条目，并提供 `tools/sync_command_catalog.dart` 更新工具；已有中文说明保留。
 
 ## [0.0.3] - 2026-09-04
@@ -34,4 +39,3 @@
 
 [Unreleased]: https://github.com/AKCX2002/Promark3-GUI/compare/v0.0.3...HEAD
 [0.0.3]: https://github.com/AKCX2002/Promark3-GUI/compare/v0.0.3-alpha...v0.0.3
-

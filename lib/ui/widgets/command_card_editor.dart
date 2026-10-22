@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:pm3gui/models/mifare_card.dart';
 import 'package:pm3gui/services/file_dialog_service.dart';
 import 'package:pm3gui/state/app_state.dart';
+import 'package:pm3gui/l10n/l10n.dart';
 
 /// 对命令采集草稿直接编辑；完整文件的分析/回写沿用转储查看器。
 class CommandCardEditor extends StatefulWidget {
@@ -40,12 +41,14 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
                       controller: controller,
                       autofocus: true,
                       decoration: InputDecoration(
-                          errorText: error, helperText: '允许空格；? 表示未知。清空移除该项。'),
+                          errorText: error,
+                          helperText: context.l10n
+                              .messageSpacesAreAllowedMeansUnknownClearThe),
                     )),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消')),
+                      child: Text(context.l10n.messageCancel)),
                   FilledButton(
                       onPressed: () {
                         try {
@@ -55,7 +58,7 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
                           update(() => error = '$e');
                         }
                       },
-                      child: const Text('应用')),
+                      child: Text(context.l10n.messageApply)),
                 ],
               ),
             ));
@@ -97,7 +100,9 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
       }
       if (format == 'bin' || format == 'eml') app.setPreferredMfDumpFile(path);
       await app.scanForFiles();
-      if (mounted) setState(() => _error = '已保存：$path');
+      if (mounted) {
+        setState(() => _error = context.l10n.messageSaved((path).toString()));
+      }
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }
@@ -127,17 +132,24 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
     if (_sector >= card.type.sectorCount) _sector = 0;
     final first = card.type.sectorFirstBlock[_sector];
     return ListView(padding: const EdgeInsets.all(12), children: [
-      const Text('命令结果自动采集到此处，点击密钥或块数据即可编辑。换卡前请选择“新卡”；? 表示未知。'),
+      Text(
+          context.l10n.messageCommandResultsAreCollectedHereAutomaticallyClick),
       const SizedBox(height: 8),
       Wrap(
           spacing: 8,
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-                '${card.type.label} · UID ${card.uid.isEmpty ? '未识别' : card.uid} · ${card.blocks.length} 块 · ${card.keysA.length + card.keysB.length} 项密钥'),
+            Text(context.l10n.messageUidBlocksKeys(
+                (card.type.label).toString(),
+                (card.uid.isEmpty
+                        ? context.l10n.messageNotIdentified
+                        : card.uid)
+                    .toString(),
+                (card.blocks.length).toString(),
+                (card.keysA.length + card.keysB.length).toString())),
             PopupMenuButton<CardType>(
-              tooltip: '新卡 / 选择容量',
+              tooltip: context.l10n.messageNewCardSelectCapacity,
               onSelected: (type) => setState(() {
                 card.clear(cardType: type);
                 _sector = 0;
@@ -145,18 +157,24 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
               itemBuilder: (_) => [
                 for (final type in [cardMini, card1K, card2K, card4K])
                   PopupMenuItem(
-                      value: type, child: Text('新卡 ${type.label}（清空当前草稿）'))
+                      value: type,
+                      child: Text(context.l10n
+                          .messageNewCardClearTheCurrentDraft(
+                              (type.label).toString())))
               ],
-              child: const Chip(label: Text('新卡 / 容量')),
+              child: Chip(label: Text(context.l10n.messageNewCardCapacity)),
             ),
-            OutlinedButton(onPressed: _load, child: const Text('打开草稿')),
             OutlinedButton(
-                onPressed: () => _save('json'), child: const Text('保存草稿')),
+                onPressed: _load, child: Text(context.l10n.messageOpenDraft)),
             OutlinedButton(
-                onPressed: () => _save('dic'), child: const Text('导出密钥字典')),
+                onPressed: () => _save('json'),
+                child: Text(context.l10n.messageSaveDraft)),
+            OutlinedButton(
+                onPressed: () => _save('dic'),
+                child: Text(context.l10n.messageExportKeyDictionary)),
             OutlinedButton(
                 onPressed: () => _save('key.bin'),
-                child: const Text('导出密钥 BIN')),
+                child: Text(context.l10n.messageExportKeyBin2)),
             if (widget.openedCard != null)
               OutlinedButton(
                   onPressed: () {
@@ -167,20 +185,22 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
                       setState(() => _error = '$e');
                     }
                   },
-                  child: const Text('以已打开文件替换草稿')),
+                  child: Text(context.l10n.messageReplaceDraftWithTheOpenFile)),
             OutlinedButton(
-                onPressed: () => _save('eml'), child: const Text('导出 EML')),
+                onPressed: () => _save('eml'),
+                child: Text(context.l10n.messageExportEml2)),
             OutlinedButton(
-                onPressed: () => _save('bin'), child: const Text('导出 BIN')),
+                onPressed: () => _save('bin'),
+                child: Text(context.l10n.messageExportBin2)),
           ]),
       const SizedBox(height: 8),
       Row(children: [
         Expanded(
             child: TextField(
                 controller: _command,
-                decoration: const InputDecoration(
-                    labelText: '直接命令',
-                    hintText: '例如 hf mf chk --1k',
+                decoration: InputDecoration(
+                    labelText: context.l10n.messageDirectCommand,
+                    hintText: context.l10n.messageForExampleHfMfChk1k,
                     border: OutlineInputBorder()))),
         const SizedBox(width: 8),
         FilledButton(
@@ -195,7 +215,9 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
                       if (mounted) setState(() => _running = false);
                     }
                   },
-            child: Text(_running ? '执行中' : '执行')),
+            child: Text(_running
+                ? context.l10n.messageRunning
+                : context.l10n.messageExecute)),
       ]),
       if (_error != null)
         Padding(
@@ -206,36 +228,45 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
             value: _sector,
             items: [
               for (var s = 0; s < card.type.sectorCount; s++)
-                DropdownMenuItem(value: s, child: Text('扇区 $s'))
+                DropdownMenuItem(
+                    value: s,
+                    child: Text(context.l10n.messageSector((s).toString())))
             ],
             onChanged: (s) => setState(() => _sector = s!)),
         TextButton(
             onPressed: () => setState(card.keysToTrailers),
-            child: const Text('密钥 → 尾块')),
+            child: Text(context.l10n.messageKeysTrailers)),
         TextButton(
             onPressed: () => setState(card.trailersToKeys),
-            child: const Text('尾块 → 密钥')),
+            child: Text(context.l10n.messageTrailersKeys)),
       ]),
       for (final a in [true, false])
         ListTile(
           title: Text('Key ${a ? 'A' : 'B'}'),
-          subtitle: Text((a ? card.keysA : card.keysB)[_sector] ?? '未读取',
+          subtitle: Text(
+              (a ? card.keysA : card.keysB)[_sector] ??
+                  context.l10n.messageNotRead,
               style: const TextStyle(fontFamily: 'monospace')),
           trailing: const Icon(Icons.edit),
           onTap: () => _edit(
-              '扇区 $_sector · Key ${a ? 'A' : 'B'}',
+              context.l10n.messageSectorKey2(
+                  (_sector).toString(), (a ? 'A' : 'B').toString()),
               (a ? card.keysA : card.keysB)[_sector] ?? '',
               (v) => card.editKey(_sector, a, v)),
         ),
       for (var b = first; b < first + card.type.blocksPerSector[_sector]; b++)
         ListTile(
-          title: Text(
-              '块 $b${b == card.type.trailerBlock(_sector) ? ' · 尾块' : ''}'),
-          subtitle: Text(card.blocks[b] ?? '未读取',
+          title: Text(context.l10n.messageBlock3(
+              (b).toString(),
+              (b == card.type.trailerBlock(_sector)
+                      ? context.l10n.messageTrailer2
+                      : '')
+                  .toString())),
+          subtitle: Text(card.blocks[b] ?? context.l10n.messageNotRead,
               style: const TextStyle(fontFamily: 'monospace')),
           trailing: const Icon(Icons.edit),
-          onTap: () =>
-              _edit('块 $b', card.blocks[b] ?? '', (v) => card.editBlock(b, v)),
+          onTap: () => _edit(context.l10n.messageBlock2((b).toString()),
+              card.blocks[b] ?? '', (v) => card.editBlock(b, v)),
         ),
     ]);
   }

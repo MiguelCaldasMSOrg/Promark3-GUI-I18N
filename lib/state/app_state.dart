@@ -9,6 +9,7 @@ import 'package:pm3gui/state/connection_state.dart';
 import 'package:pm3gui/state/terminal_state.dart';
 import 'package:pm3gui/state/file_state.dart';
 import 'package:pm3gui/state/hardware_state.dart';
+import 'package:pm3gui/l10n/localized_messages.dart';
 
 enum AppPage {
   connection,
@@ -91,7 +92,7 @@ class WriteBlockResult {
   });
 }
 
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with LocalizedMessages {
   late final ConnectionState connectionState;
   late final TerminalState terminalState;
   late final FileState fileState;
@@ -115,6 +116,15 @@ class AppState extends ChangeNotifier {
 
   MifareCard currentCard = MifareCard();
   final commandCard = CommandCard();
+
+  @override
+  void updateLocalizations(AppLocalizations value) {
+    super.updateLocalizations(value);
+    connectionState.updateLocalizations(value);
+    fileState.updateLocalizations(value);
+    hardwareState.updateLocalizations(value);
+    commandCard.updateLocalizations(value);
+  }
 
   WriteProgress? writeProgress;
 
@@ -288,7 +298,7 @@ class AppState extends ChangeNotifier {
     try {
       await connectionState.sendCommand(cmd);
     } catch (error) {
-      terminalState.addOutput('[错误] $error');
+      terminalState.addOutput(l10n.messageError((error).toString()));
     }
   }
 
@@ -303,13 +313,13 @@ class AppState extends ChangeNotifier {
     for (final (block, cmd) in commands) {
       if (progress.cancelled) break;
       if (!isConnected) {
-        progress.currentStatus = '连接断开，操作中止';
+        progress.currentStatus = l10n.messageConnectionLostOperationAborted;
         progress.cancelled = true;
         notifyListeners();
         break;
       }
 
-      progress.currentStatus = '正在写入 块 $block ...';
+      progress.currentStatus = l10n.messageWritingBlock((block).toString());
       notifyListeners();
 
       await sendCommand(cmd);
@@ -327,14 +337,14 @@ class AppState extends ChangeNotifier {
         progress.results.add(WriteBlockResult(
           block: block,
           success: false,
-          message: '认证失败或写入失败',
+          message: l10n.messageAuthenticationOrWritingFailed,
         ));
       } else {
         progress.succeeded++;
         progress.results.add(WriteBlockResult(
           block: block,
           success: true,
-          message: '写入成功',
+          message: l10n.messageWriteSuccessful,
         ));
       }
       progress.completed++;
@@ -342,8 +352,8 @@ class AppState extends ChangeNotifier {
     }
 
     if (!progress.cancelled) {
-      progress.currentStatus =
-          '完成: ${progress.succeeded} 成功, ${progress.failed} 失败';
+      progress.currentStatus = l10n.messageFinishedSucceededFailed(
+          (progress.succeeded).toString(), (progress.failed).toString());
     }
     notifyListeners();
     return progress;
@@ -352,7 +362,7 @@ class AppState extends ChangeNotifier {
   void cancelWriteSequence() {
     if (writeProgress != null && writeProgress!.isRunning) {
       writeProgress!.cancelled = true;
-      writeProgress!.currentStatus = '已取消';
+      writeProgress!.currentStatus = l10n.messageCancelled;
       notifyListeners();
     }
   }

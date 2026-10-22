@@ -10,6 +10,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:pm3gui/l10n/localized_messages.dart';
 
 /// PM3 客户端进程的连接状态
 enum Pm3ProcessState {
@@ -67,7 +68,7 @@ final class _IoPm3ProcessHandle implements Pm3ProcessHandle {
     throw ProcessException(
       'taskkill',
       arguments,
-      '整树终止失败 (exit=${result.exitCode})${detail.isEmpty ? '' : ': $detail'}',
+      'Failed to terminate process tree (exit=${result.exitCode})${detail.isEmpty ? '' : ': $detail'}',
       result.exitCode,
     );
   }
@@ -92,7 +93,7 @@ Future<Pm3ProcessHandle> _startPm3Process(
     ));
 
 /// 包装 pm3 命令行进程以进行通信
-class Pm3Process {
+class Pm3Process with LocalizedMessages {
   Pm3ProcessHandle? _process; // PM3 进程实例
   StreamSubscription<String>? _stdoutSubscription;
   StreamSubscription<String>? _stderrSubscription;
@@ -196,7 +197,7 @@ class Pm3Process {
     String? workingDirectory,
   }) {
     if (_disposed || _shuttingDown) {
-      _lastError = 'PM3 进程管理器已释放';
+      _lastError = l10n.messageThePm3ProcessManagerHasBeenDisposed;
       return Future.value(false);
     }
     if (_connectingFuture != null) return _connectingFuture!;
@@ -227,8 +228,9 @@ class Pm3Process {
       final elapsed = DateTime.now().difference(_lastConnectAttempt!);
       if (elapsed < _connectCooldown) {
         final wait = _connectCooldown - elapsed;
-        _lastError = '请等待 ${wait.inSeconds + 1} 秒后再试';
-        _emitOutput('[请等待冷却: ${wait.inSeconds + 1}s]');
+        _lastError = l10n.messagePleaseWaitSecondsBeforeRetrying(
+            (wait.inSeconds + 1).toString());
+        _emitOutput(l10n.messageCoolingDownS((wait.inSeconds + 1).toString()));
         return false;
       }
     }
@@ -246,19 +248,18 @@ class Pm3Process {
       // 解析实际可执行文件路径
       final resolved = resolvePm3Path(pm3Path);
       if (resolved == null) {
-        _lastError = '找不到 PM3 程序: $pm3Path\n'
-            'Windows 请优先选择官方发行包根目录的 pm3.bat；'
-            'Linux 请选择 proxmark3';
-        _emitOutput('[错误] $_lastError');
+        _lastError =
+            l10n.messagePm3ProgramNotFoundOnWindowsSelect((pm3Path).toString());
+        _emitOutput(l10n.messageError((_lastError).toString()));
         _setState(Pm3ProcessState.disconnected);
         return false;
       }
 
       final (execPath, resolvedWorkDir) = resolved;
       final workDir = workingDirectory ?? resolvedWorkDir;
-      _emitOutput('[使用 PM3: $execPath]');
+      _emitOutput(l10n.messageUsingPm3((execPath).toString()));
       if (workDir != null) {
-        _emitOutput('[工作目录: $workDir]');
+        _emitOutput(l10n.messageWorkingDirectory((workDir).toString()));
       }
 
       // 官方 Windows 发行包以根目录 pm3.bat 作为入口。脚本会自行完成
@@ -292,13 +293,17 @@ class Pm3Process {
       _connectionCompleter = completer;
       var connected = false;
       var batchHandshakeSent = false;
-      final readyMarker = 'PM3GUI_READY_${connectionGeneration}_${DateTime.now().microsecondsSinceEpoch}';
+      final readyMarker =
+          'PM3GUI_READY_${connectionGeneration}_${DateTime.now().microsecondsSinceEpoch}';
       var stdoutPending = '';
 
       void handleStdoutRecord(String line) {
         if (!identical(_process, process) || _disposed) return;
-        if (batchHandshakeSent && line.contains('pm3 --> rem $readyMarker')) return;
-        if (batchHandshakeSent && line.trimRight().endsWith('remark: $readyMarker')) {
+        if (batchHandshakeSent && line.contains('pm3 --> rem $readyMarker')) {
+          return;
+        }
+        if (batchHandshakeSent &&
+            line.trimRight().endsWith('remark: $readyMarker')) {
           connected = true;
           _setState(Pm3ProcessState.connected);
           if (!completer.isCompleted) completer.complete(true);
@@ -320,7 +325,7 @@ class Pm3Process {
 
         // 检测致命错误和连接提示
         if (_detectFatalError(line)) {
-          _failConnecting(completer, 'PM3 stdout 出现致命错误');
+          _failConnecting(completer, l10n.messageFatalErrorOnPm3Stdout);
           unawaited(_closeCurrentProcess(
             process,
             connectionGeneration,
@@ -351,8 +356,9 @@ class Pm3Process {
               await process.writeLine('rem $readyMarker');
             } catch (error) {
               if (!identical(_process, process) || _disposed) return;
-              _lastError = 'PM3 BAT 只读握手写入失败: $error';
-              _emitOutput('[错误] $_lastError');
+              _lastError =
+                  l10n.messageFailedToSendTheReadOnlyPm3((error).toString());
+              _emitOutput(l10n.messageError((_lastError).toString()));
               _failConnecting(completer, _lastError);
               await _closeCurrentProcess(
                 process,
@@ -391,10 +397,13 @@ class Pm3Process {
 
       // 监听 stdout
       // 部分 Windows 客户端帮助文本含非 UTF-8 字节；保留后续输出与会话。
-      _stdoutSubscription = process.stdout.transform(const Utf8Decoder(allowMalformed: true)).listen(
+      _stdoutSubscription = process.stdout
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .listen(
         handleStdoutChunk,
         onError: (Object error, StackTrace stackTrace) {
-          _failConnecting(completer, 'PM3 stdout 流错误: $error');
+          _failConnecting(
+              completer, l10n.messagePm3StdoutStreamError((error).toString()));
           unawaited(_closeCurrentProcess(
             process,
             connectionGeneration,
@@ -422,7 +431,7 @@ class Pm3Process {
           .listen((line) {
         if (!identical(_process, process) || _disposed) return;
         if (_detectFatalError(line)) {
-          _failConnecting(completer, 'PM3 stderr 出现致命错误');
+          _failConnecting(completer, l10n.messageFatalErrorOnPm3Stderr);
           unawaited(_closeCurrentProcess(
             process,
             connectionGeneration,
@@ -433,7 +442,8 @@ class Pm3Process {
         if (_commandCompleter != null) _responseBuffer.writeln('[ERR] $line');
         _emitOutput('[ERR] $line');
       }, onError: (Object error, StackTrace stackTrace) {
-        _failConnecting(completer, 'PM3 stderr 流错误: $error');
+        _failConnecting(
+            completer, l10n.messagePm3StderrStreamError((error).toString()));
         unawaited(_closeCurrentProcess(
           process,
           connectionGeneration,
@@ -452,15 +462,17 @@ class Pm3Process {
       unawaited(process.exitCode.then<void>(
         (code) async {
           if (!identical(_process, process) || _disposed) return;
-          _emitOutput('[PM3 进程退出, code=$code]');
+          _emitOutput(l10n.messagePm3ProcessExitedCode((code).toString()));
           if (!connected) {
-            _lastError = 'PM3 进程在连接提示前退出 (code=$code)';
+            _lastError = l10n.messagePm3ProcessExitedBeforeTheConnectionPrompt(
+                (code).toString());
             if (!completer.isCompleted) completer.complete(false);
           }
           await _closeCurrentProcess(process, connectionGeneration);
         },
         onError: (Object error, StackTrace stackTrace) async {
-          _failConnecting(completer, 'PM3 进程退出状态错误: $error');
+          _failConnecting(completer,
+              l10n.messagePm3ProcessExitStatusError((error).toString()));
           await _closeCurrentProcess(
             process,
             connectionGeneration,
@@ -474,8 +486,9 @@ class Pm3Process {
         return await completer.future.timeout(_connectTimeout);
       } on TimeoutException {
         if (!connected && identical(_process, process)) {
-          _lastError = '连接超时 (${_connectTimeout.inSeconds}s)，请检查设备是否已连接';
-          _emitOutput('[连接超时]');
+          _lastError = l10n.messageConnectionTimedOutSCheckThatThe(
+              (_connectTimeout.inSeconds).toString());
+          _emitOutput(l10n.messageConnectionTimedOut);
           await _closeCurrentProcess(
             process,
             connectionGeneration,
@@ -486,18 +499,17 @@ class Pm3Process {
       }
     } on ProcessException catch (e) {
       _startingFuture = null;
-      _lastError = '无法启动 PM3 程序: ${e.message}\n'
-          '路径: $pm3Path\n'
-          '请检查路径是否正确，程序是否已编译';
-      _emitOutput('[错误] $_lastError');
+      _lastError = l10n.messageCouldNotStartPm3PathCheckThe(
+          (e.message).toString(), (pm3Path).toString());
+      _emitOutput(l10n.messageError((_lastError).toString()));
       if (connectionGeneration == _processGeneration) {
         _setState(Pm3ProcessState.disconnected);
       }
       return false;
     } catch (e) {
       _startingFuture = null;
-      _lastError = '连接失败: $e';
-      _emitOutput('[错误] $_lastError');
+      _lastError = l10n.messageConnectionFailed((e).toString());
+      _emitOutput(l10n.messageError((_lastError).toString()));
       if (connectionGeneration == _processGeneration) {
         _setState(Pm3ProcessState.disconnected);
       }
@@ -508,7 +520,7 @@ class Pm3Process {
   /// 向交互式会话发送命令
   Future<void> sendCommand(String command) async {
     if (_process == null || _state != Pm3ProcessState.connected) {
-      _emitOutput('[未连接]');
+      _emitOutput(l10n.messageNotConnected);
       return;
     }
     _emitOutput('[pm3] $command');
@@ -517,24 +529,23 @@ class Pm3Process {
 
   /// 等待客户端执行完成标记；静默、表格边框和命令回显都不是结束信号。
   /// 默认持续等待。显式超时会断开会话，防止后续命令混入未完成的输出。
-  Future<String> sendCommandAndWait(String command,
-      {Duration? timeout}) async {
+  Future<String> sendCommandAndWait(String command, {Duration? timeout}) async {
     if (_process == null || _state != Pm3ProcessState.connected) {
-      return '[未连接]';
+      return l10n.messageNotConnected;
     }
 
     if (_commandCompleter != null) {
-      throw StateError('PM3 命令仍在执行，请等待完成或断开连接');
+      throw StateError(l10n.pm3Busy);
     }
     final process = _process!;
     final completer = Completer<String>();
     _commandCompleter = completer;
-    _commandMarker = 'PM3GUI_DONE_${DateTime.now().microsecondsSinceEpoch}_${++_commandSequence}';
+    _commandMarker =
+        'PM3GUI_DONE_${DateTime.now().microsecondsSinceEpoch}_${++_commandSequence}';
     _responseBuffer.clear();
     // 在写 stdin 前注册错误处理，断开或写入失败也不会产生未处理 Future。
-    final result = timeout == null
-        ? completer.future
-        : completer.future.timeout(timeout);
+    final result =
+        timeout == null ? completer.future : completer.future.timeout(timeout);
     unawaited(result.then<void>((_) {}, onError: (Object _) {}));
     try {
       _emitOutput('[pm3] $command');
@@ -542,7 +553,7 @@ class Pm3Process {
       await process.writeLine('rem $_commandMarker');
       return await result;
     } on TimeoutException {
-      _emitOutput('[错误] 命令超时，会话已停止');
+      _emitOutput(l10n.messageErrorCommandTimedOutTheSessionWas);
       await disconnect();
       rethrow;
     } catch (_) {
@@ -558,7 +569,8 @@ class Pm3Process {
   void _failCommand() {
     final completer = _commandCompleter;
     if (completer != null && !completer.isCompleted) {
-      completer.completeError(StateError('PM3 会话在命令完成前断开'));
+      completer.completeError(
+          StateError(l10n.messageThePm3SessionDisconnectedBeforeTheCommand));
     }
   }
 
@@ -603,7 +615,8 @@ class Pm3Process {
         try {
           await _terminateUnownedOnce(await starting);
         } catch (error) {
-          _recordLifecycleError('等待 PM3 启动失败: $error');
+          _recordLifecycleError(
+              l10n.messageFailedWhileWaitingForPm3ToStart((error).toString()));
         }
       }
     } finally {
@@ -647,7 +660,8 @@ class Pm3Process {
           final startedProcess = await starting;
           await _terminateUnownedOnce(startedProcess);
         } catch (error) {
-          _recordLifecycleError('等待 PM3 启动失败: $error');
+          _recordLifecycleError(
+              l10n.messageFailedWhileWaitingForPm3ToStart((error).toString()));
         }
       }
     } finally {
@@ -676,7 +690,8 @@ class Pm3Process {
         try {
           await process.writeLine('quit');
         } catch (error) {
-          _recordLifecycleError('发送 quit 失败: $error');
+          _recordLifecycleError(
+              l10n.messageFailedToSendQuit((error).toString()));
         }
         final exited = await _waitForExit(process, _gracefulExitTimeout);
         if (!exited) forceKill = true;
@@ -725,18 +740,21 @@ class Pm3Process {
         const Duration(milliseconds: 100),
       );
       if (!identical(_process, process) || _disposed) return;
-      _emitOutput('[PM3 进程退出, code=$code]');
-      _lastError = 'PM3 进程在连接提示前退出 (code=$code)';
+      _emitOutput(l10n.messagePm3ProcessExitedCode((code).toString()));
+      _lastError = l10n
+          .messagePm3ProcessExitedBeforeTheConnectionPrompt((code).toString());
       _failConnecting(completer, _lastError);
       await _closeCurrentProcess(process, generation);
       return;
     } on TimeoutException {
       // 输出管道孤立关闭，以下路径强制收口该进程。
     } catch (error) {
-      _recordLifecycleError('PM3 $streamName 流关闭后读取退出状态失败: $error');
+      _recordLifecycleError(l10n.messageCouldNotReadTheExitStatusAfter(
+          (streamName).toString(), (error).toString()));
     }
     if (!identical(_process, process) || _disposed) return;
-    _failConnecting(completer, 'PM3 $streamName 流已关闭');
+    _failConnecting(
+        completer, l10n.messagePm3StreamClosed((streamName).toString()));
     await _closeCurrentProcess(process, generation, forceKill: true);
   }
 
@@ -747,7 +765,8 @@ class Pm3Process {
     } on TimeoutException {
       return false;
     } catch (error) {
-      _recordLifecycleError('等待 PM3 退出失败: $error');
+      _recordLifecycleError(
+          l10n.messageFailedWhileWaitingForPm3ToExit((error).toString()));
       return false;
     }
   }
@@ -755,18 +774,18 @@ class Pm3Process {
   Future<void> _killAndWait(Pm3ProcessHandle process) async {
     final terminated = await _tryTerminate(process, force: false);
     if (!terminated) {
-      _recordLifecycleError('终止 PM3 进程失败: TERM/整树终止未成功');
+      _recordLifecycleError(l10n.messageFailedToTerminatePm3TermProcessTree);
     }
     var exited = await _waitForExit(process, _killExitTimeout);
     if (!exited) {
       final forceTerminated = await _tryTerminate(process, force: true);
       if (!forceTerminated) {
-        _recordLifecycleError('强制终止 PM3 进程失败: KILL/整树终止未成功');
+        _recordLifecycleError(l10n.messageFailedToForceTerminatePm3KillProcess);
       }
       exited = await _waitForExit(process, _killExitTimeout);
     }
     if (!exited) {
-      _recordLifecycleError('终止 PM3 后等待退出超时');
+      _recordLifecycleError(l10n.messageTimedOutWaitingForPm3ToExit);
     }
   }
 
@@ -778,12 +797,14 @@ class Pm3Process {
       final terminated = await process.terminate(force: force);
       if (!terminated) {
         _recordLifecycleError(
-          '终止 PM3 进程失败: ${force ? 'KILL' : 'TERM'} 返回 false',
+          l10n.messageFailedToTerminatePm3ReturnedFalse(
+              (force ? 'KILL' : 'TERM').toString()),
         );
       }
       return terminated;
     } catch (error) {
-      _recordLifecycleError('终止 PM3 进程失败: $error');
+      _recordLifecycleError(
+          l10n.messageFailedToTerminatePm3((error).toString()));
       return false;
     }
   }
@@ -818,7 +839,7 @@ class Pm3Process {
     } else if (!_lastError.contains(message)) {
       _lastError = '$_lastError；$message';
     }
-    _emitOutput('[错误] $message');
+    _emitOutput(l10n.messageError((message).toString()));
   }
 
   /// 检测致命错误，这意味着我们应该停止尝试
@@ -827,23 +848,20 @@ class Pm3Process {
 
     if (lower.contains('claimed by another process') ||
         lower.contains('is claimed by')) {
-      _lastError = '串口 已被其他进程占用\n'
-          '请关闭其他使用该端口的程序（如另一个 pm3 终端）';
+      _lastError = l10n.messageTheSerialPortIsInUseBy;
       return true;
     }
     if (lower.contains('no such file or directory') &&
         lower.contains('serial')) {
-      _lastError = '串口设备不存在，请检查 PM3 是否已通过 USB 连接';
+      _lastError = l10n.messageSerialDeviceNotFoundCheckThePm3;
       return true;
     }
     if (lower.contains('permission denied')) {
-      _lastError = '串口权限不足\n'
-          '请尝试: sudo chmod 666 /dev/ttyACM0\n'
-          '或将用户加入 dialout 组';
+      _lastError = l10n.messagePermissionDeniedForTheSerialPortTry;
       return true;
     }
     if (lower.contains('error') && lower.contains('serial port')) {
-      _lastError = '串口连接错误: $line';
+      _lastError = l10n.messageSerialConnectionError((line).toString());
       return true;
     }
     return false;
