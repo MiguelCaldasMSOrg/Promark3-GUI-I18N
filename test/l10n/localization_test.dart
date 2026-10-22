@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pm3gui/backend/mock/mock_pm3_backend.dart';
 import 'package:pm3gui/core/pm3/pm3_client_settings.dart';
@@ -15,6 +16,7 @@ import 'package:pm3gui/parsers/dump_parser.dart';
 import 'package:pm3gui/services/dump_converter.dart';
 import 'package:pm3gui/services/pm3_command_catalog.dart';
 import 'package:pm3gui/services/pm3_settings_store.dart';
+import 'package:pm3gui/services/locale_settings_store.dart';
 import 'package:pm3gui/state/app_state.dart';
 import 'package:pm3gui/state/connection_state.dart' as connection;
 import '../support/localized_test_app.dart';
@@ -113,6 +115,47 @@ void main() {
     app.dispose();
     await tester.pump();
     locale.dispose();
+  });
+
+  testWidgets(
+      'directory lookup failure still allows startup and a Settings error',
+      (tester) async {
+    tester.view.physicalSize = const Size(1500, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final app = _appState();
+    final locale = AppLocaleController(
+      repository: LocaleSettingsStore(
+        directoryProvider: () async => throw MissingPlatformDirectoryException(
+            'support directory unavailable'),
+      ),
+    );
+    try {
+      final initialized = Future.wait([app.initialize(), locale.initialize()]);
+      final initialization = expectLater(initialized, completes);
+      await tester.pump();
+      await initialization;
+      app.navigateTo(AppPage.settings);
+      await tester.pumpWidget(ChangeNotifierProvider.value(
+        value: app,
+        child: DefaultAssetBundle(
+          bundle: _CatalogBundle(),
+          child: PM3GuiApp(localeController: locale),
+        ),
+      ));
+      await _render(tester);
+
+      expect(find.byKey(const ValueKey('language-error')), findsOneWidget);
+      expect(
+          find.textContaining('support directory unavailable'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      app.dispose();
+      await tester.pump();
+      locale.dispose();
+    }
   });
 
   for (final systemLocale in [

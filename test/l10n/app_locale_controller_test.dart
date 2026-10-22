@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pm3gui/l10n/app_locale_controller.dart';
 import 'package:pm3gui/services/locale_settings_store.dart';
 import '../support/localized_test_app.dart';
@@ -89,6 +90,63 @@ void main() {
     await controller.setLocale(const Locale('zh'));
     expect(controller.error, isNull);
     controller.dispose();
+  });
+
+  test('directory lookup failure is exposed without blocking initialization',
+      () async {
+    final failure =
+        MissingPlatformDirectoryException('support directory unavailable');
+    final controller = AppLocaleController(
+      repository: LocaleSettingsStore(
+        directoryProvider: () async => throw failure,
+      ),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.initialize();
+    await controller.flush();
+
+    expect(controller.locale, isNull);
+    expect(controller.error, isA<FileSystemException>());
+    expect(controller.error.toString(), contains(failure.toString()));
+    expect(controller.isSaving, isFalse);
+  });
+
+  test('directory lookup save failures do not poison later queued saves',
+      () async {
+    final directory =
+        await Directory.systemTemp.createTemp('pm3-locale-directory-');
+    addTearDown(() => directory.delete(recursive: true));
+    var unavailable = false;
+    final store = LocaleSettingsStore(directoryProvider: () async {
+      if (unavailable) {
+        throw MissingPlatformDirectoryException(
+            'support directory unavailable');
+      }
+      return directory;
+    });
+    final controller = AppLocaleController(repository: store);
+    addTearDown(controller.dispose);
+    await controller.initialize();
+    unavailable = true;
+
+    await Future.wait([
+      controller.setLocale(const Locale('en')),
+      controller.setLocale(const Locale('zh')),
+    ]);
+    await controller.flush();
+
+    expect(controller.locale, const Locale('zh'));
+    expect(controller.error, isA<FileSystemException>());
+    expect(controller.isSaving, isFalse);
+
+    unavailable = false;
+    await controller.setLocale(const Locale('en'));
+    await controller.flush();
+
+    expect(controller.error, isNull);
+    expect(controller.isSaving, isFalse);
+    expect(await store.load(), 'en');
   });
 }
 

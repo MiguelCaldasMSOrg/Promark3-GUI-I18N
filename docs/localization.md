@@ -96,6 +96,9 @@ directory using an exclusive temporary file, a flushed write and same-directory
 replacement. `null` means system default. Writes are serialized and flushed
 during application exit. Missing files are normal; corrupt, unsupported or
 unwritable preferences produce an explicit Settings error.
+Path-provider directory-lookup exceptions are converted to storage errors while
+preserving their diagnostics and stack traces. Initialization can therefore
+continue to the UI, and failed writes do not prevent later saves from retrying.
 
 Language settings are separate from Proxmark3 launch settings and do not change
 session records, device data, dump formats or client configuration.

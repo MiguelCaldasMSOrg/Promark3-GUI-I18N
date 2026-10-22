@@ -6,6 +6,9 @@
 
 ### Fixed
 
+- Report language-directory lookup failures as storage errors so startup
+  reaches Settings and queued saves can recover when the directory is available.
+
 - Give the DESFire Applications tab its own resource while preserving the
   editor's Apply action translation.
 

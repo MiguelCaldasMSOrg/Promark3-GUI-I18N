@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart'
+    show MissingPluginException, PlatformException;
 import 'package:path_provider/path_provider.dart';
 import 'pm3_settings_store.dart';
 
@@ -18,9 +20,26 @@ final class LocaleSettingsStore implements LocaleSettingsRepository {
   static var _sequence = 0;
 
   Future<File> _file() async {
-    final directory = await _directoryProvider();
+    final Directory directory;
+    try {
+      directory = await _directoryProvider();
+    } on MissingPlatformDirectoryException catch (error, stack) {
+      _throwDirectoryLookupError(error, stack);
+    } on PlatformException catch (error, stack) {
+      _throwDirectoryLookupError(error, stack);
+    } on MissingPluginException catch (error, stack) {
+      _throwDirectoryLookupError(error, stack);
+    }
     return File('${directory.path}${Platform.pathSeparator}language.json');
   }
+
+  static Never _throwDirectoryLookupError(Object error, StackTrace stack) =>
+      Error.throwWithStackTrace(
+        FileSystemException(
+          'Unable to resolve the application support directory: $error',
+        ),
+        stack,
+      );
 
   @override
   Future<String?> load() async {
