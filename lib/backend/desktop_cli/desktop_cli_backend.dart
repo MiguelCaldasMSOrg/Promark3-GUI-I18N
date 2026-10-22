@@ -9,6 +9,7 @@ import 'package:pm3gui/core/pm3/pm3_result.dart';
 
 import 'pm3_process.dart';
 import 'package:pm3gui/l10n/localized_messages.dart';
+import 'package:pm3gui/l10n/localized_pm3_process_messages.dart';
 
 /// Desktop backend backed by the official Proxmark3 CLI process.
 final class DesktopCliBackend with LocalizedMessages implements Pm3Backend {
@@ -33,7 +34,7 @@ final class DesktopCliBackend with LocalizedMessages implements Pm3Backend {
   @override
   void updateLocalizations(AppLocalizations value) {
     super.updateLocalizations(value);
-    _process.updateLocalizations(value);
+    _process.l10n = LocalizedPm3ProcessMessages(value);
   }
 
   /// Selects a sensible external-client default without leaking platform

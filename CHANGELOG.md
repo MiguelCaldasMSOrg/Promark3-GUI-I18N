@@ -6,6 +6,9 @@
 
 ### Fixed
 
+- Keep command-catalog synchronization runnable with standalone `dart run` by
+  adapting Flutter localizations outside the process layer.
+
 - 子终端持续显示输出，直到切换页面、重新执行命令或销毁页面；不再在 5/8/10 秒后截断，总终端保持原有显示与历史行为。
 - 修复功能页面一次点击重复发送命令，以及执行中加载动画遮住实时输出的问题。
 - 使用客户端 `rem` 顺序标记判断命令与 Windows 握手完成，避免静默、表格边框和命令回显导致提前返回；拒绝并发发送，显式超时不再返回部分成功结果。

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pm3gui/backend/desktop_cli/pm3_process.dart';
+import '../support/dart_executable.dart';
 
 void main() {
   late Directory fixtureDirectory;
@@ -840,27 +841,4 @@ Future<bool> _waitUntil(
   return await condition() == expected;
 }
 
-String get _dartExecutable {
-  final executable = File(Platform.resolvedExecutable);
-  if (executable.uri.pathSegments.last.toLowerCase().startsWith('dart')) {
-    return executable.path;
-  }
-  var directory = executable.parent;
-  while (directory.parent.path != directory.path) {
-    final candidate = File(
-      '${directory.path}${Platform.pathSeparator}dart-sdk'
-      '${Platform.pathSeparator}bin${Platform.pathSeparator}dart.exe',
-    );
-    if (candidate.existsSync()) return candidate.path;
-    directory = directory.parent;
-  }
-  final lookup = Process.runSync(
-    Platform.isWindows ? 'where' : 'which',
-    [Platform.isWindows ? 'dart.bat' : 'dart'],
-  );
-  final path = (lookup.stdout as String).trim().split(RegExp(r'[\r\n]+')).first;
-  if (lookup.exitCode != 0 || path.isEmpty) {
-    throw StateError('找不到当前 Dart 可执行文件');
-  }
-  return path;
-}
+String get _dartExecutable => dartExecutable;

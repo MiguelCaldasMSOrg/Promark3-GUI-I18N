@@ -19,6 +19,12 @@ This project follows Flutter's official
   Chinese default preserves existing non-UI caller behavior.
 - Dump-analysis caches include the locale; terminal suggestions are reloaded
   on locale changes with stale asynchronous results discarded.
+- `Pm3Process` depends only on Dart SDK libraries and the pure-Dart
+  `Pm3ProcessMessages` contract. Its Chinese defaults preserve standalone-tool
+  behavior. `DesktopCliBackend` injects `LocalizedPm3ProcessMessages` to adapt
+  generated `AppLocalizations` without pulling Flutter into the process layer.
+  Keep these defaults in sync with the Chinese ARB catalog; the message-contract
+  tests verify every process message.
 
 ## Editing messages
 

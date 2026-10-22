@@ -10,7 +10,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:pm3gui/l10n/localized_messages.dart';
+import 'pm3_process_messages.dart';
 
 /// PM3 客户端进程的连接状态
 enum Pm3ProcessState {
@@ -93,7 +93,9 @@ Future<Pm3ProcessHandle> _startPm3Process(
     ));
 
 /// 包装 pm3 命令行进程以进行通信
-class Pm3Process with LocalizedMessages {
+class Pm3Process {
+  Pm3ProcessMessages l10n;
+
   Pm3ProcessHandle? _process; // PM3 进程实例
   StreamSubscription<String>? _stdoutSubscription;
   StreamSubscription<String>? _stderrSubscription;
@@ -136,6 +138,7 @@ class Pm3Process with LocalizedMessages {
   static const _defaultConnectCooldown = Duration(seconds: 3);
 
   Pm3Process({
+    this.l10n = const Pm3ProcessMessages(),
     Duration connectCooldown = _defaultConnectCooldown,
     Duration gracefulExitTimeout = const Duration(milliseconds: 500),
     Duration connectTimeout = const Duration(seconds: 15),
