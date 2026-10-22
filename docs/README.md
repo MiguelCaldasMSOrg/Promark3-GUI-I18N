@@ -1,5 +1,7 @@
 # Documentation index
 
+[简体中文 (Simplified Chinese)](../README.md) | [English](../README.en.md) | [English quick start](../README.quickstart.en.md)
+
 This index distinguishes current guidance from preserved design/history
 documents. PR #27 adds GUI internationalization; it does not certify additional
 protocol coverage, platforms or hardware operations.
@@ -9,7 +11,8 @@ protocol coverage, platforms or hardware operations.
 | Document | Purpose |
 |---|---|
 | [Chinese README](../README.md) / [HTML snapshot](../README.html) | User setup, languages, client integration, formats, privacy and build steps |
-| [English README](../README.en.md) | English setup, language selection and standalone command-help synchronization |
+| [English README](../README.en.md) / [HTML snapshot](../README.en.html) | Full English user guide, formats, client integration and build steps |
+| [English quick-start](../README.quickstart.en.md) | English setup, language selection and standalone command-help synchronization |
 | [Localization](localization.md) | ARB workflow, adding languages, preference/error behavior and regression coverage |
 | [Current implementation and roadmap](refactoring_plan.md) | Current backend/tool boundaries, supported desktop targets and future direction |
 | [Contributing](../CONTRIBUTING.md) | Contributor workflow and localization requirements |

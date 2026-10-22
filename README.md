@@ -1,6 +1,6 @@
 # PM3 GUI
 
-**简体中文** | [English](README.en.md)
+**简体中文 (Simplified Chinese)** | [English](README.en.md) | [English quick start](README.quickstart.en.md)
 
 <div align="center">
   <a href="https://github.com/Babel36acl/Promark3-GUI/actions/workflows/build.yml"><img src="https://github.com/Babel36acl/Promark3-GUI/actions/workflows/build.yml/badge.svg" alt="Build"/></a>
