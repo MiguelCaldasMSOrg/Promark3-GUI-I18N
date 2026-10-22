@@ -2540,7 +2540,11 @@
   },
   "messageApply": "Apply",
   "@messageApply": {
-    "description": "hf_mfdes_page: Apply"
+    "description": "Command card editor action that applies edits (verb)."
+  },
+  "desfireApplicationsTab": "Applications",
+  "@desfireApplicationsTab": {
+    "description": "DESFire tab for listing and selecting applications (noun), not the Apply action."
   },
   "messageFiles": "Files",
   "@messageFiles": {

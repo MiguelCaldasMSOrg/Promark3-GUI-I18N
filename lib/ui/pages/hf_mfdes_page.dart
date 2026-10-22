@@ -70,7 +70,7 @@ class _HfMfdesPageState extends State<HfMfdesPage>
     return Column(children: [
       TabBar(controller: _tabController, tabs: [
         Tab(text: context.l10n.messageInformation),
-        Tab(text: context.l10n.messageApply),
+        Tab(text: context.l10n.desfireApplicationsTab),
         Tab(text: context.l10n.messageFiles),
         Tab(text: context.l10n.messageManagement),
       ]),

@@ -6,6 +6,9 @@
 
 ### Fixed
 
+- Give the DESFire Applications tab its own resource while preserving the
+  editor's Apply action translation.
+
 - Preserve the selected language when validating imported command-card drafts
   and card data, without changing failed-import atomicity.
 

@@ -513,6 +513,7 @@
   "messageRead": "读取",
   "messageWrite": "写入",
   "messageApply": "应用",
+  "desfireApplicationsTab": "应用",
   "messageFiles": "文件",
   "messageManagement": "管理",
   "messageDetect": "检测",

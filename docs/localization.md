@@ -31,6 +31,8 @@ This project follows Flutter's official
 Give messages stable, semantic camelCase keys. Localize complete sentences:
 do not concatenate translated word fragments, use display text as a storage
 key, or decide application behavior by comparing translated strings.
+Keep different meanings in separate resources even when one language spells
+them identically, such as the DESFire "Applications" noun and editor "Apply" verb.
 
 Each template entry requires `@messageKey` translator metadata. Interpolations
 use named ARB placeholders with explicit Dart types. Counts with grammatical
