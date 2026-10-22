@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pm3gui/backend/desktop_cli/pm3_process.dart';
+import 'package:pm3gui/backend/desktop_cli/pm3_process_messages.dart';
 import '../support/dart_executable.dart';
 
 void main() {
@@ -609,6 +610,44 @@ pause >nul
     expect(process.lastError, contains('终止'));
   });
 
+  test('retained lifecycle errors use replacement framework-free messages',
+      () async {
+    final child = _FakeProcess(killResults: [false, true]);
+    const originalMessages = _LifecycleMessages('original');
+    const replacementMessages = _LifecycleMessages('replacement');
+    final process = Pm3Process(
+      l10n: originalMessages,
+      connectCooldown: Duration.zero,
+      gracefulExitTimeout: const Duration(milliseconds: 20),
+      killExitTimeout: const Duration(milliseconds: 20),
+      processStarter: (_, __, {workingDirectory}) async => child,
+    );
+    addTearDown(process.shutdown);
+    final output = <String>[];
+    final subscription = process.outputStream.listen(output.add);
+    addTearDown(subscription.cancel);
+    final connecting = process.connect(_dartExecutable, 'COM7');
+    await Future<void>.delayed(Duration.zero);
+    child.stdoutController.add(utf8.encode('pm3 -->\n'));
+    expect(await connecting.timeout(const Duration(seconds: 2)), isTrue);
+
+    await process.disconnect().timeout(const Duration(seconds: 2));
+    final originalOutput = output.toList();
+    for (final messages in [
+      originalMessages,
+      replacementMessages,
+      originalMessages,
+    ]) {
+      process.l10n = messages;
+      expect(process.lastError,
+          '${messages.messageFailedToTerminatePm3ReturnedFalse('TERM')}；'
+          '${messages.messageFailedToTerminatePm3TermProcessTree}');
+      expect(output, originalOutput);
+      expect(child.terminationForces, [false, true]);
+      expect(process.state, Pm3ProcessState.disconnected);
+    }
+  });
+
   test('exitCode error closes a connected process without a zone error',
       () async {
     final child = _FakeProcess();
@@ -787,6 +826,20 @@ final class _FakeProcess implements Pm3ProcessHandle {
     writtenLines.add(line);
     if (writeError case final error?) throw error;
   }
+}
+
+class _LifecycleMessages extends Pm3ProcessMessages {
+  const _LifecycleMessages(this.prefix);
+
+  final String prefix;
+
+  @override
+  String messageFailedToTerminatePm3ReturnedFalse(String value) =>
+      '$prefix: terminate $value returned false';
+
+  @override
+  String get messageFailedToTerminatePm3TermProcessTree =>
+      '$prefix: TERM process-tree termination failed';
 }
 
 const _fixtureSource = r'''

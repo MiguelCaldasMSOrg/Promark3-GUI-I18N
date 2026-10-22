@@ -19,6 +19,102 @@ enum Pm3ProcessState {
   connected // 已连接
 }
 
+enum _Pm3FailureKind {
+  disposed,
+  cooldown,
+  programNotFound,
+  fatalStdout,
+  handshakeWrite,
+  stdoutStream,
+  fatalStderr,
+  stderrStream,
+  exitedBeforePrompt,
+  exitStatus,
+  connectionTimeout,
+  start,
+  connection,
+  waitingForStart,
+  sendQuit,
+  readExitStatus,
+  streamClosed,
+  waitingForExit,
+  terminateTree,
+  forceTerminate,
+  exitTimeout,
+  terminateReturnedFalse,
+  terminate,
+  serialPortInUse,
+  serialDeviceNotFound,
+  serialPermissionDenied,
+  serialConnection,
+}
+
+final class _Pm3Failure {
+  const _Pm3Failure(this.kind, [this.argument = '', this.secondArgument = '']);
+
+  final _Pm3FailureKind kind;
+  final String argument;
+  final String secondArgument;
+
+  bool matches(_Pm3Failure other) =>
+      (kind, argument, secondArgument) ==
+      (other.kind, other.argument, other.secondArgument);
+
+  String format(Pm3ProcessMessages messages) => switch (kind) {
+        _Pm3FailureKind.disposed =>
+          messages.messageThePm3ProcessManagerHasBeenDisposed,
+        _Pm3FailureKind.cooldown =>
+          messages.messagePleaseWaitSecondsBeforeRetrying(argument),
+        _Pm3FailureKind.programNotFound =>
+          messages.messagePm3ProgramNotFoundOnWindowsSelect(argument),
+        _Pm3FailureKind.fatalStdout => messages.messageFatalErrorOnPm3Stdout,
+        _Pm3FailureKind.handshakeWrite =>
+          messages.messageFailedToSendTheReadOnlyPm3(argument),
+        _Pm3FailureKind.stdoutStream =>
+          messages.messagePm3StdoutStreamError(argument),
+        _Pm3FailureKind.fatalStderr => messages.messageFatalErrorOnPm3Stderr,
+        _Pm3FailureKind.stderrStream =>
+          messages.messagePm3StderrStreamError(argument),
+        _Pm3FailureKind.exitedBeforePrompt =>
+          messages.messagePm3ProcessExitedBeforeTheConnectionPrompt(argument),
+        _Pm3FailureKind.exitStatus =>
+          messages.messagePm3ProcessExitStatusError(argument),
+        _Pm3FailureKind.connectionTimeout =>
+          messages.messageConnectionTimedOutSCheckThatThe(argument),
+        _Pm3FailureKind.start => messages.messageCouldNotStartPm3PathCheckThe(
+            argument, secondArgument),
+        _Pm3FailureKind.connection =>
+          messages.messageConnectionFailed(argument),
+        _Pm3FailureKind.waitingForStart =>
+          messages.messageFailedWhileWaitingForPm3ToStart(argument),
+        _Pm3FailureKind.sendQuit => messages.messageFailedToSendQuit(argument),
+        _Pm3FailureKind.readExitStatus => messages
+            .messageCouldNotReadTheExitStatusAfter(argument, secondArgument),
+        _Pm3FailureKind.streamClosed =>
+          messages.messagePm3StreamClosed(argument),
+        _Pm3FailureKind.waitingForExit =>
+          messages.messageFailedWhileWaitingForPm3ToExit(argument),
+        _Pm3FailureKind.terminateTree =>
+          messages.messageFailedToTerminatePm3TermProcessTree,
+        _Pm3FailureKind.forceTerminate =>
+          messages.messageFailedToForceTerminatePm3KillProcess,
+        _Pm3FailureKind.exitTimeout =>
+          messages.messageTimedOutWaitingForPm3ToExit,
+        _Pm3FailureKind.terminateReturnedFalse =>
+          messages.messageFailedToTerminatePm3ReturnedFalse(argument),
+        _Pm3FailureKind.terminate =>
+          messages.messageFailedToTerminatePm3(argument),
+        _Pm3FailureKind.serialPortInUse =>
+          messages.messageTheSerialPortIsInUseBy,
+        _Pm3FailureKind.serialDeviceNotFound =>
+          messages.messageSerialDeviceNotFoundCheckThePm3,
+        _Pm3FailureKind.serialPermissionDenied =>
+          messages.messagePermissionDeniedForTheSerialPortTry,
+        _Pm3FailureKind.serialConnection =>
+          messages.messageSerialConnectionError(argument),
+      };
+}
+
 /// 交互式 PM3 子进程所需的最小句柄，供生命周期测试注入可控实现。
 abstract interface class Pm3ProcessHandle {
   Stream<List<int>> get stdout;
@@ -111,7 +207,7 @@ class Pm3Process {
   int _processGeneration = 0;
   Pm3ProcessState _state = Pm3ProcessState.disconnected; // 当前连接状态
   String _version = ''; // PM3 版本信息
-  String _lastError = ''; // 最后一次错误信息
+  final List<_Pm3Failure> _lastErrors = [];
   DateTime? _lastConnectAttempt; // 最后一次连接尝试时间
 
   /// 来自 pm3 stdout/stderr 的行流
@@ -131,7 +227,8 @@ class Pm3Process {
   Stream<Pm3ProcessState> get stateStream => _stateController.stream;
   Pm3ProcessState get state => _state;
   String get version => _version;
-  String get lastError => _lastError;
+  String get lastError =>
+      _lastErrors.map((error) => error.format(l10n)).join('；');
   bool get isConnected => _state == Pm3ProcessState.connected;
 
   /// 连接尝试之间的最小间隔（防止重试风暴）
@@ -200,7 +297,7 @@ class Pm3Process {
     String? workingDirectory,
   }) {
     if (_disposed || _shuttingDown) {
-      _lastError = l10n.messageThePm3ProcessManagerHasBeenDisposed;
+      _setLastError(const _Pm3Failure(_Pm3FailureKind.disposed));
       return Future.value(false);
     }
     if (_connectingFuture != null) return _connectingFuture!;
@@ -231,14 +328,14 @@ class Pm3Process {
       final elapsed = DateTime.now().difference(_lastConnectAttempt!);
       if (elapsed < _connectCooldown) {
         final wait = _connectCooldown - elapsed;
-        _lastError = l10n.messagePleaseWaitSecondsBeforeRetrying(
-            (wait.inSeconds + 1).toString());
+        _setLastError(_Pm3Failure(
+            _Pm3FailureKind.cooldown, (wait.inSeconds + 1).toString()));
         _emitOutput(l10n.messageCoolingDownS((wait.inSeconds + 1).toString()));
         return false;
       }
     }
     _lastConnectAttempt = DateTime.now();
-    _lastError = '';
+    _lastErrors.clear();
 
     if (_state != Pm3ProcessState.disconnected) {
       await disconnect();
@@ -251,9 +348,8 @@ class Pm3Process {
       // 解析实际可执行文件路径
       final resolved = resolvePm3Path(pm3Path);
       if (resolved == null) {
-        _lastError =
-            l10n.messagePm3ProgramNotFoundOnWindowsSelect((pm3Path).toString());
-        _emitOutput(l10n.messageError((_lastError).toString()));
+        _setLastError(_Pm3Failure(_Pm3FailureKind.programNotFound, pm3Path));
+        _emitOutput(l10n.messageError(lastError));
         _setState(Pm3ProcessState.disconnected);
         return false;
       }
@@ -328,7 +424,8 @@ class Pm3Process {
 
         // 检测致命错误和连接提示
         if (_detectFatalError(line)) {
-          _failConnecting(completer, l10n.messageFatalErrorOnPm3Stdout);
+          _failConnecting(
+              completer, const _Pm3Failure(_Pm3FailureKind.fatalStdout));
           unawaited(_closeCurrentProcess(
             process,
             connectionGeneration,
@@ -359,10 +456,11 @@ class Pm3Process {
               await process.writeLine('rem $readyMarker');
             } catch (error) {
               if (!identical(_process, process) || _disposed) return;
-              _lastError =
-                  l10n.messageFailedToSendTheReadOnlyPm3((error).toString());
-              _emitOutput(l10n.messageError((_lastError).toString()));
-              _failConnecting(completer, _lastError);
+              final failure =
+                  _Pm3Failure(_Pm3FailureKind.handshakeWrite, error.toString());
+              _setLastError(failure);
+              _emitOutput(l10n.messageError(lastError));
+              _failConnecting(completer, failure);
               await _closeCurrentProcess(
                 process,
                 connectionGeneration,
@@ -405,8 +503,8 @@ class Pm3Process {
           .listen(
         handleStdoutChunk,
         onError: (Object error, StackTrace stackTrace) {
-          _failConnecting(
-              completer, l10n.messagePm3StdoutStreamError((error).toString()));
+          _failConnecting(completer,
+              _Pm3Failure(_Pm3FailureKind.stdoutStream, error.toString()));
           unawaited(_closeCurrentProcess(
             process,
             connectionGeneration,
@@ -434,7 +532,8 @@ class Pm3Process {
           .listen((line) {
         if (!identical(_process, process) || _disposed) return;
         if (_detectFatalError(line)) {
-          _failConnecting(completer, l10n.messageFatalErrorOnPm3Stderr);
+          _failConnecting(
+              completer, const _Pm3Failure(_Pm3FailureKind.fatalStderr));
           unawaited(_closeCurrentProcess(
             process,
             connectionGeneration,
@@ -445,8 +544,8 @@ class Pm3Process {
         if (_commandCompleter != null) _responseBuffer.writeln('[ERR] $line');
         _emitOutput('[ERR] $line');
       }, onError: (Object error, StackTrace stackTrace) {
-        _failConnecting(
-            completer, l10n.messagePm3StderrStreamError((error).toString()));
+        _failConnecting(completer,
+            _Pm3Failure(_Pm3FailureKind.stderrStream, error.toString()));
         unawaited(_closeCurrentProcess(
           process,
           connectionGeneration,
@@ -467,15 +566,15 @@ class Pm3Process {
           if (!identical(_process, process) || _disposed) return;
           _emitOutput(l10n.messagePm3ProcessExitedCode((code).toString()));
           if (!connected) {
-            _lastError = l10n.messagePm3ProcessExitedBeforeTheConnectionPrompt(
-                (code).toString());
+            _setLastError(_Pm3Failure(
+                _Pm3FailureKind.exitedBeforePrompt, code.toString()));
             if (!completer.isCompleted) completer.complete(false);
           }
           await _closeCurrentProcess(process, connectionGeneration);
         },
         onError: (Object error, StackTrace stackTrace) async {
           _failConnecting(completer,
-              l10n.messagePm3ProcessExitStatusError((error).toString()));
+              _Pm3Failure(_Pm3FailureKind.exitStatus, error.toString()));
           await _closeCurrentProcess(
             process,
             connectionGeneration,
@@ -489,8 +588,8 @@ class Pm3Process {
         return await completer.future.timeout(_connectTimeout);
       } on TimeoutException {
         if (!connected && identical(_process, process)) {
-          _lastError = l10n.messageConnectionTimedOutSCheckThatThe(
-              (_connectTimeout.inSeconds).toString());
+          _setLastError(_Pm3Failure(_Pm3FailureKind.connectionTimeout,
+              _connectTimeout.inSeconds.toString()));
           _emitOutput(l10n.messageConnectionTimedOut);
           await _closeCurrentProcess(
             process,
@@ -502,17 +601,16 @@ class Pm3Process {
       }
     } on ProcessException catch (e) {
       _startingFuture = null;
-      _lastError = l10n.messageCouldNotStartPm3PathCheckThe(
-          (e.message).toString(), (pm3Path).toString());
-      _emitOutput(l10n.messageError((_lastError).toString()));
+      _setLastError(_Pm3Failure(_Pm3FailureKind.start, e.message, pm3Path));
+      _emitOutput(l10n.messageError(lastError));
       if (connectionGeneration == _processGeneration) {
         _setState(Pm3ProcessState.disconnected);
       }
       return false;
     } catch (e) {
       _startingFuture = null;
-      _lastError = l10n.messageConnectionFailed((e).toString());
-      _emitOutput(l10n.messageError((_lastError).toString()));
+      _setLastError(_Pm3Failure(_Pm3FailureKind.connection, e.toString()));
+      _emitOutput(l10n.messageError(lastError));
       if (connectionGeneration == _processGeneration) {
         _setState(Pm3ProcessState.disconnected);
       }
@@ -619,7 +717,7 @@ class Pm3Process {
           await _terminateUnownedOnce(await starting);
         } catch (error) {
           _recordLifecycleError(
-              l10n.messageFailedWhileWaitingForPm3ToStart((error).toString()));
+              _Pm3Failure(_Pm3FailureKind.waitingForStart, error.toString()));
         }
       }
     } finally {
@@ -664,7 +762,7 @@ class Pm3Process {
           await _terminateUnownedOnce(startedProcess);
         } catch (error) {
           _recordLifecycleError(
-              l10n.messageFailedWhileWaitingForPm3ToStart((error).toString()));
+              _Pm3Failure(_Pm3FailureKind.waitingForStart, error.toString()));
         }
       }
     } finally {
@@ -694,7 +792,7 @@ class Pm3Process {
           await process.writeLine('quit');
         } catch (error) {
           _recordLifecycleError(
-              l10n.messageFailedToSendQuit((error).toString()));
+              _Pm3Failure(_Pm3FailureKind.sendQuit, error.toString()));
         }
         final exited = await _waitForExit(process, _gracefulExitTimeout);
         if (!exited) forceKill = true;
@@ -744,20 +842,21 @@ class Pm3Process {
       );
       if (!identical(_process, process) || _disposed) return;
       _emitOutput(l10n.messagePm3ProcessExitedCode((code).toString()));
-      _lastError = l10n
-          .messagePm3ProcessExitedBeforeTheConnectionPrompt((code).toString());
-      _failConnecting(completer, _lastError);
+      final failure =
+          _Pm3Failure(_Pm3FailureKind.exitedBeforePrompt, code.toString());
+      _setLastError(failure);
+      _failConnecting(completer, failure);
       await _closeCurrentProcess(process, generation);
       return;
     } on TimeoutException {
       // 输出管道孤立关闭，以下路径强制收口该进程。
     } catch (error) {
-      _recordLifecycleError(l10n.messageCouldNotReadTheExitStatusAfter(
-          (streamName).toString(), (error).toString()));
+      _recordLifecycleError(_Pm3Failure(
+          _Pm3FailureKind.readExitStatus, streamName, error.toString()));
     }
     if (!identical(_process, process) || _disposed) return;
     _failConnecting(
-        completer, l10n.messagePm3StreamClosed((streamName).toString()));
+        completer, _Pm3Failure(_Pm3FailureKind.streamClosed, streamName));
     await _closeCurrentProcess(process, generation, forceKill: true);
   }
 
@@ -769,7 +868,7 @@ class Pm3Process {
       return false;
     } catch (error) {
       _recordLifecycleError(
-          l10n.messageFailedWhileWaitingForPm3ToExit((error).toString()));
+          _Pm3Failure(_Pm3FailureKind.waitingForExit, error.toString()));
       return false;
     }
   }
@@ -777,18 +876,19 @@ class Pm3Process {
   Future<void> _killAndWait(Pm3ProcessHandle process) async {
     final terminated = await _tryTerminate(process, force: false);
     if (!terminated) {
-      _recordLifecycleError(l10n.messageFailedToTerminatePm3TermProcessTree);
+      _recordLifecycleError(const _Pm3Failure(_Pm3FailureKind.terminateTree));
     }
     var exited = await _waitForExit(process, _killExitTimeout);
     if (!exited) {
       final forceTerminated = await _tryTerminate(process, force: true);
       if (!forceTerminated) {
-        _recordLifecycleError(l10n.messageFailedToForceTerminatePm3KillProcess);
+        _recordLifecycleError(
+            const _Pm3Failure(_Pm3FailureKind.forceTerminate));
       }
       exited = await _waitForExit(process, _killExitTimeout);
     }
     if (!exited) {
-      _recordLifecycleError(l10n.messageTimedOutWaitingForPm3ToExit);
+      _recordLifecycleError(const _Pm3Failure(_Pm3FailureKind.exitTimeout));
     }
   }
 
@@ -800,14 +900,14 @@ class Pm3Process {
       final terminated = await process.terminate(force: force);
       if (!terminated) {
         _recordLifecycleError(
-          l10n.messageFailedToTerminatePm3ReturnedFalse(
-              (force ? 'KILL' : 'TERM').toString()),
+          _Pm3Failure(
+              _Pm3FailureKind.terminateReturnedFalse, force ? 'KILL' : 'TERM'),
         );
       }
       return terminated;
     } catch (error) {
       _recordLifecycleError(
-          l10n.messageFailedToTerminatePm3((error).toString()));
+          _Pm3Failure(_Pm3FailureKind.terminate, error.toString()));
       return false;
     }
   }
@@ -830,19 +930,23 @@ class Pm3Process {
     }
   }
 
-  void _failConnecting(Completer<bool> completer, String fallbackError) {
+  void _setLastError(_Pm3Failure error) {
+    _lastErrors
+      ..clear()
+      ..add(error);
+  }
+
+  void _failConnecting(Completer<bool> completer, _Pm3Failure fallbackError) {
     if (_disposed) return;
-    if (_lastError.isEmpty) _lastError = fallbackError;
+    if (_lastErrors.isEmpty) _lastErrors.add(fallbackError);
     if (!completer.isCompleted) completer.complete(false);
   }
 
-  void _recordLifecycleError(String message) {
-    if (_lastError.isEmpty) {
-      _lastError = message;
-    } else if (!_lastError.contains(message)) {
-      _lastError = '$_lastError；$message';
+  void _recordLifecycleError(_Pm3Failure error) {
+    if (!_lastErrors.any((existing) => existing.matches(error))) {
+      _lastErrors.add(error);
     }
-    _emitOutput(l10n.messageError((message).toString()));
+    _emitOutput(l10n.messageError(error.format(l10n)));
   }
 
   /// 检测致命错误，这意味着我们应该停止尝试
@@ -851,20 +955,20 @@ class Pm3Process {
 
     if (lower.contains('claimed by another process') ||
         lower.contains('is claimed by')) {
-      _lastError = l10n.messageTheSerialPortIsInUseBy;
+      _setLastError(const _Pm3Failure(_Pm3FailureKind.serialPortInUse));
       return true;
     }
     if (lower.contains('no such file or directory') &&
         lower.contains('serial')) {
-      _lastError = l10n.messageSerialDeviceNotFoundCheckThePm3;
+      _setLastError(const _Pm3Failure(_Pm3FailureKind.serialDeviceNotFound));
       return true;
     }
     if (lower.contains('permission denied')) {
-      _lastError = l10n.messagePermissionDeniedForTheSerialPortTry;
+      _setLastError(const _Pm3Failure(_Pm3FailureKind.serialPermissionDenied));
       return true;
     }
     if (lower.contains('error') && lower.contains('serial port')) {
-      _lastError = l10n.messageSerialConnectionError((line).toString());
+      _setLastError(_Pm3Failure(_Pm3FailureKind.serialConnection, line));
       return true;
     }
     return false;

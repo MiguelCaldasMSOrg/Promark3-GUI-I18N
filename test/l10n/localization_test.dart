@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:pm3gui/backend/desktop_cli/desktop_cli_backend.dart';
+import 'package:pm3gui/backend/desktop_cli/pm3_process.dart';
 import 'package:pm3gui/backend/mock/mock_pm3_backend.dart';
 import 'package:pm3gui/core/pm3/pm3_client_settings.dart';
 import 'package:pm3gui/core/pm3/pm3_controller.dart';
@@ -150,6 +152,99 @@ void main() {
       expect(
           find.textContaining('support directory unavailable'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      app.dispose();
+      await tester.pump();
+      locale.dispose();
+    }
+  });
+
+  testWidgets(
+      'connection failure follows Settings language without retrying or rewriting terminal output',
+      (tester) async {
+    tester.view.physicalSize = const Size(1500, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var starts = 0;
+    final process = Pm3Process(
+      processStarter: (_, __, {workingDirectory}) async {
+        starts++;
+        throw StateError('A missing client must not be started');
+      },
+    );
+    final backend = DesktopCliBackend(process: process);
+    final app = _OfflineAppState(
+      connectionState: connection.ConnectionState(
+        controller: Pm3Controller(backend),
+        settingsStore: _Settings(),
+      ),
+    );
+    final locale = AppLocaleController(repository: MemoryLocaleSettings('zh'));
+    final initialized = Future.wait([app.initialize(), locale.initialize()]);
+    await tester.pump();
+    await initialized;
+    final path = '${Directory.systemTemp.path}${Platform.pathSeparator}'
+        'pm3gui-missing-${DateTime.now().microsecondsSinceEpoch}.exe';
+    expect(File(path).existsSync(), isFalse);
+    app.connectionState
+      ..pm3Path = path
+      ..portName = 'test';
+    final states = <Pm3ProcessState>[];
+    final subscription = process.stateStream.listen(states.add);
+    addTearDown(subscription.cancel);
+    try {
+      await tester.pumpWidget(ChangeNotifierProvider<AppState>.value(
+        value: app,
+        child: DefaultAssetBundle(
+          bundle: _CatalogBundle(),
+          child: PM3GuiApp(localeController: locale),
+        ),
+      ));
+      await _render(tester);
+      final connecting = app.connect();
+      await tester.pump();
+      expect(await connecting, isFalse);
+      await _render(tester);
+      final chinese = lookupAppLocalizations(const Locale('zh'));
+      expect(find.text(chinese.messagePm3ProgramNotFoundOnWindowsSelect(path)),
+          findsOneWidget);
+      final terminal = app.terminalOutput.toList();
+      final history = app.commandHistory.toList();
+      expect(terminal, [
+        chinese.messageError(
+            chinese.messagePm3ProgramNotFoundOnWindowsSelect(path)),
+      ]);
+
+      for (final language in ['en', 'zh']) {
+        final l10n = lookupAppLocalizations(Locale(language));
+        final other =
+            lookupAppLocalizations(Locale(language == 'en' ? 'zh' : 'en'));
+        app.navigateTo(AppPage.settings);
+        await _render(tester);
+        await tester.tap(
+            find.byKey(ValueKey('language-${locale.locale!.languageCode}')));
+        await _render(tester);
+        await tester.tap(find.text(language == 'en' ? 'English' : '简体中文').last);
+        await _render(tester);
+        app.navigateTo(AppPage.connection);
+        await _render(tester);
+
+        final expected = l10n.messagePm3ProgramNotFoundOnWindowsSelect(path);
+        expect(find.text(expected), findsOneWidget);
+        expect(find.text(other.messagePm3ProgramNotFoundOnWindowsSelect(path)),
+            findsNothing);
+        expect(app.lastError, expected);
+        expect(app.isConnected, isFalse);
+        expect(app.pm3Path, path);
+        expect(app.terminalOutput, orderedEquals(terminal));
+        expect(app.commandHistory, orderedEquals(history));
+        expect(
+            states, [Pm3ProcessState.connecting, Pm3ProcessState.disconnected]);
+        expect(starts, 0);
+        expect(tester.takeException(), isNull);
+      }
     } finally {
       await tester.pumpWidget(const SizedBox());
       app.dispose();

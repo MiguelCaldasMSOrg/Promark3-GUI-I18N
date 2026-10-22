@@ -43,6 +43,10 @@ This project follows Flutter's official
   `Pm3ProcessMessages` contract. Its Chinese defaults preserve standalone-tool
   behavior. `DesktopCliBackend` injects `LocalizedPm3ProcessMessages` to adapt
   generated `AppLocalizations` without pulling Flutter into the process layer.
+  Retained connection and lifecycle errors store message kinds and diagnostic
+  arguments; `lastError` formats them through the current adapter. Changing
+  language refreshes the Connection error card without retrying the connection,
+  emitting new output or rewriting historical terminal/session logs.
   Keep these defaults in sync with the Chinese ARB catalog; the message-contract
   tests verify every process message.
 - Staging `CommandCard` instances inherit the active localizations before
@@ -112,7 +116,9 @@ The focused regression files are:
 | Preference loading, serialized saves and retries | `test/l10n/app_locale_controller_test.dart` |
 | Directory exception conversion and diagnostics | `test/services/locale_settings_store_test.dart` |
 | Startup Settings error, switching and page/tab rendering | `test/l10n/localization_test.dart` |
-| Standalone message defaults and Flutter adapter | `test/l10n/pm3_process_messages_test.dart` |
+| Standalone message defaults, Flutter adapter and retained connection errors | `test/l10n/pm3_process_messages_test.dart` |
+| Connection error card after Settings language changes, without retry/output changes | `test/l10n/localization_test.dart` |
+| Retained lifecycle errors with replacement framework-free messages | `test/backend/pm3_process_test.dart` |
 | English import errors and atomicity | `test/models/command_card_test.dart` |
 | Applications versus Apply | `test/ui/hf_mfdes_page_test.dart` |
 | HID reader brute-force labels, language switching and unchanged command syntax | `test/ui/lf_hid_page_test.dart` |

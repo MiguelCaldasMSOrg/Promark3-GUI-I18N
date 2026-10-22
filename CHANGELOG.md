@@ -6,6 +6,10 @@
 
 ### Fixed
 
+- Refresh retained connection errors when the language changes by storing
+  process error kinds and arguments, while keeping the process contract
+  Flutter-free and preserving terminal history without retrying the connection.
+
 - Give HID Prox reader brute-force its own tab, heading and action labels,
   without changing genuine key-recovery translations or PM3 command syntax.
 
