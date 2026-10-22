@@ -23,7 +23,7 @@ PM3 GUI 是面向 Proxmark3 的 GPL-3.0 开源桌面图形客户端，提供常�
 
 语言保存失败时，当前会话仍使用所选语言，并在设置页显示错误；修复目录或权限问题后，再次选择语言可重试保存。损坏或不受支持的语言设置不会阻止界面启动。
 
-翻译维护、新增语言和 PR #27 的回归覆盖请参阅 [Localization](docs/localization.md)，当前审查发现的文案限制见[已知问题](docs/localization.md#known-limitations)。全部文档的现状与历史说明见 [文档索引](docs/README.md)；[README.html](README.html) 是本文件的 HTML 快照。
+翻译维护、新增语言、当前行为、PR #27 的回归覆盖与验证限制请参阅 [Localization](docs/localization.md)。全部文档的现状与历史说明见 [文档索引](docs/README.md)；[README.html](README.html) 是本文件的 HTML 快照。
 
 ## 平台与范围
 

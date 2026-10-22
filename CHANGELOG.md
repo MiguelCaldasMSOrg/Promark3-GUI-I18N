@@ -6,6 +6,10 @@
 
 ### Fixed
 
+- Refresh retained command-card save confirmations after language changes,
+  preserving status clearing and error replacement. Replace stale translation
+  documentation links and describe the implemented HID reader-brute-force labels.
+
 - Refresh retained connection errors when the language changes by storing
   process error kinds and arguments, while keeping the process contract
   Flutter-free and preserving terminal history without retrying the connection.

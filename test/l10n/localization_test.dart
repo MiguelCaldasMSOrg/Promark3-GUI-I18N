@@ -22,6 +22,7 @@ import 'package:pm3gui/services/locale_settings_store.dart';
 import 'package:pm3gui/state/app_state.dart';
 import 'package:pm3gui/state/connection_state.dart' as connection;
 import '../support/localized_test_app.dart';
+import '../support/file_dialogs.dart';
 
 void main() {
   for (final language in ['en', 'zh']) {
@@ -364,6 +365,73 @@ void main() {
       }
     });
   }
+
+  testWidgets(
+      'editor save status follows Settings language without saving again',
+      (tester) async {
+    tester.view.physicalSize = const Size(1500, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final directory = Directory.systemTemp.createTempSync('editor-locale-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final path = '${directory.path}${Platform.pathSeparator}command-card.json';
+    final dialogs = TestFileDialogs()..savePath = path;
+    final app = _appState();
+    final locale = AppLocaleController(repository: MemoryLocaleSettings('zh'));
+    final initialized = Future.wait([app.initialize(), locale.initialize()]);
+    await tester.pump();
+    await initialized;
+    app.commandCard.uid = '01020304';
+    app.navigateTo(AppPage.dumpViewer);
+    final zh = lookupAppLocalizations(const Locale('zh'));
+    try {
+      await tester.pumpWidget(ChangeNotifierProvider<AppState>.value(
+        value: app,
+        child: DefaultAssetBundle(
+          bundle: _CatalogBundle(),
+          child: PM3GuiApp(localeController: locale),
+        ),
+      ));
+      await _render(tester);
+      await tester.tap(find.descendant(
+          of: find.byType(TabBar), matching: find.text(zh.messageCommandData)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(zh.messageSaveDraft));
+      await pumpFileOperation(
+          tester, () => find.text(zh.messageSaved(path)).evaluate().isNotEmpty);
+      final saved = File(path).readAsStringSync();
+      final modified = File(path).lastModifiedSync();
+      final draft = app.commandCard;
+      for (final language in ['en', 'zh']) {
+        app.navigateTo(AppPage.settings);
+        await _render(tester);
+        await tester.tap(
+            find.byKey(ValueKey('language-${locale.locale!.languageCode}')));
+        await _render(tester);
+        await tester.tap(find.text(language == 'en' ? 'English' : '简体中文').last);
+        await _render(tester);
+        app.navigateTo(AppPage.dumpViewer);
+        await _render(tester);
+        final l10n = lookupAppLocalizations(Locale(language));
+        final other =
+            lookupAppLocalizations(Locale(language == 'en' ? 'zh' : 'en'));
+        expect(find.text(l10n.messageSaved(path)), findsOneWidget);
+        expect(find.text(other.messageSaved(path)), findsNothing);
+        expect(app.commandCard, same(draft));
+        expect(app.commandCard.uid, '01020304');
+        expect(File(path).readAsStringSync(), saved);
+        expect(File(path).lastModifiedSync(), modified);
+        expect(dialogs.calls.map((call) => call.method), ['getSavePath']);
+        expect(tester.takeException(), isNull);
+      }
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      app.dispose();
+      await tester.pump();
+      locale.dispose();
+    }
+  });
 
   for (final systemLocale in [
     const Locale('fr', 'FR'),

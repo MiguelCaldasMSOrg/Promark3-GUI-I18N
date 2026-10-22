@@ -18,7 +18,16 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
   final _command = TextEditingController();
   int _sector = 0;
   String? _error;
+  String? _savedPath;
   bool _running = false;
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _error = error.toString();
+      _savedPath = null;
+    });
+  }
 
   @override
   void dispose() {
@@ -101,10 +110,13 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
       if (format == 'bin' || format == 'eml') app.setPreferredMfDumpFile(path);
       await app.scanForFiles();
       if (mounted) {
-        setState(() => _error = context.l10n.messageSaved((path).toString()));
+        setState(() {
+          _error = null;
+          _savedPath = path;
+        });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      _showError(e);
     }
   }
 
@@ -118,10 +130,11 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
         setState(() {
           _sector = 0;
           _error = null;
+          _savedPath = null;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      _showError(e);
     }
   }
 
@@ -131,6 +144,9 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
     final card = app.commandCard;
     if (_sector >= card.type.sectorCount) _sector = 0;
     final first = card.type.sectorFirstBlock[_sector];
+    final savedPath = _savedPath;
+    final status = _error ??
+        (savedPath == null ? null : context.l10n.messageSaved(savedPath));
     return ListView(padding: const EdgeInsets.all(12), children: [
       Text(
           context.l10n.messageCommandResultsAreCollectedHereAutomaticallyClick),
@@ -182,7 +198,7 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
                       card.importCard(widget.openedCard!);
                       setState(() => _sector = 0);
                     } catch (e) {
-                      setState(() => _error = '$e');
+                      _showError(e);
                     }
                   },
                   child: Text(context.l10n.messageReplaceDraftWithTheOpenFile)),
@@ -219,9 +235,9 @@ class _CommandCardEditorState extends State<CommandCardEditor> {
                 ? context.l10n.messageRunning
                 : context.l10n.messageExecute)),
       ]),
-      if (_error != null)
+      if (status != null)
         Padding(
-            padding: const EdgeInsets.all(8), child: SelectableText(_error!)),
+            padding: const EdgeInsets.all(8), child: SelectableText(status)),
       const SizedBox(height: 8),
       Wrap(spacing: 8, children: [
         DropdownButton<int>(

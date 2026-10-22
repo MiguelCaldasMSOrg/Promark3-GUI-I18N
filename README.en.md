@@ -46,8 +46,8 @@ language; their appearance is not controlled by Flutter.
 Draft/card imports validate blocks and keys in the selected language. A failed
 import leaves the existing draft unchanged. The DESFire **Applications** tab and
 the editor's **Apply** action deliberately use separate resources.
-Outstanding translation findings are recorded under
-[Known limitations](docs/localization.md#known-limitations).
+See the [localization guide](docs/localization.md) for current behavior,
+regression coverage and validation limitations.
 
 ## Development
 

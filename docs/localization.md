@@ -51,6 +51,10 @@ This project follows Flutter's official
   tests verify every process message.
 - Staging `CommandCard` instances inherit the active localizations before
   validating imported blocks or keys. Failed draft/card imports are atomic.
+- Editor save confirmations retain the saved path and format `messageSaved`
+  with the current locale when displayed, without saving the file again.
+  Successful draft loads clear the status; save/import failures replace it;
+  cancelled file dialogs leave the existing status unchanged.
 - The DESFire Applications tab uses `desfireApplicationsTab`; the editor's Apply
   verb remains `messageApply`. Shared source-language spelling is not sufficient
   reason to merge resources.
@@ -120,6 +124,8 @@ The focused regression files are:
 | Connection error card after Settings language changes, without retry/output changes | `test/l10n/localization_test.dart` |
 | Retained lifecycle errors with replacement framework-free messages | `test/backend/pm3_process_test.dart` |
 | English import errors and atomicity | `test/models/command_card_test.dart` |
+| Retained editor save status, cancellation, successful-load clearing and error replacement | `test/ui/command_card_editor_test.dart` |
+| Editor save confirmation after Settings language changes, without another save | `test/l10n/localization_test.dart` |
 | Applications versus Apply | `test/ui/hf_mfdes_page_test.dart` |
 | HID reader brute-force labels, language switching and unchanged command syntax | `test/ui/lf_hid_page_test.dart` |
 | Locale-independent write states, mixed block results, cancellation and connection loss | `test/state/write_progress_test.dart` |
