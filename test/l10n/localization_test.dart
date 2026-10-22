@@ -158,6 +158,118 @@ void main() {
     }
   });
 
+  for (final status in [
+    WriteStatus.writing,
+    WriteStatus.finished,
+    WriteStatus.cancelled,
+    WriteStatus.connectionLost,
+  ]) {
+    testWidgets(
+        '${status.name} write progress and results follow Settings language changes',
+        (tester) async {
+      tester.view.physicalSize = const Size(1600, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final dump = (await tester.runAsync(() async {
+        final directory =
+            await Directory.systemTemp.createTemp('pm3-write-locale-');
+        addTearDown(() => directory.delete(recursive: true));
+        return File('${directory.path}${Platform.pathSeparator}sample.bin')
+          ..writeAsBytesSync(Uint8List(1024));
+      }))!;
+      final app = _appState();
+      final locale =
+          AppLocaleController(repository: MemoryLocaleSettings('zh'));
+      final initialized = Future.wait([app.initialize(), locale.initialize()]);
+      await tester.pump();
+      await initialized;
+      final progress = WriteProgress(
+        total: status == WriteStatus.finished ? 2 : 4,
+        completed: 2,
+        succeeded: 1,
+        failed: 1,
+        status: status,
+        currentBlock: 9,
+        results: const [
+          WriteBlockResult(block: 4, success: true),
+          WriteBlockResult(block: 7, success: false),
+        ],
+      );
+      final results = progress.results.toList();
+      app.writeProgress = progress;
+      app.terminalState.addOutput('Auth error - 原始输出');
+      app.requestNavigationIntent(
+        AppPage.dumpViewer,
+        action: 'open_file',
+        params: {'path': dump.path},
+      );
+      try {
+        await tester.pumpWidget(ChangeNotifierProvider.value(
+          value: app,
+          child: DefaultAssetBundle(
+            bundle: _CatalogBundle(),
+            child: PM3GuiApp(localeController: locale),
+          ),
+        ));
+        for (var attempt = 0;
+            attempt < 100 && app.preferredMfDumpFile != dump.path;
+            attempt++) {
+          await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 10)));
+          await tester.pump();
+        }
+        expect(app.preferredMfDumpFile, dump.path);
+        await _render(tester);
+        final zh = lookupAppLocalizations(const Locale('zh'));
+        await tester.tap(find.text(zh.messageWriteClear));
+        await tester.pumpAndSettle();
+
+        for (final language in ['zh', 'en', 'zh']) {
+          final l10n = lookupAppLocalizations(Locale(language));
+          final other =
+              lookupAppLocalizations(Locale(language == 'en' ? 'zh' : 'en'));
+          if (locale.locale?.languageCode != language) {
+            app.navigateTo(AppPage.settings);
+            await _render(tester);
+            final currentLanguage = locale.locale!.languageCode;
+            await tester.tap(find.byKey(ValueKey('language-$currentLanguage')));
+            await _render(tester);
+            await tester
+                .tap(find.text(language == 'en' ? 'English' : '简体中文').last);
+            await _render(tester);
+            app.navigateTo(AppPage.dumpViewer);
+            await _render(tester);
+          }
+          await tester.ensureVisible(find.text(l10n.messageWriteProgress));
+          await _render(tester);
+          expect(find.text(progress.localizedStatus(l10n)), findsOneWidget);
+          expect(find.text(l10n.messageWriteSuccessful), findsOneWidget);
+          expect(find.text(l10n.messageAuthenticationOrWritingFailed),
+              findsOneWidget);
+          expect(find.text(progress.localizedStatus(other)), findsNothing);
+          expect(find.text(other.messageWriteSuccessful), findsNothing);
+          expect(find.text(other.messageAuthenticationOrWritingFailed),
+              findsNothing);
+          expect(app.writeProgress, same(progress));
+          expect(progress.status, status);
+          expect(progress.completed, 2);
+          expect(progress.succeeded, 1);
+          expect(progress.failed, 1);
+          expect(progress.results, orderedEquals(results));
+          expect(progress.results.map((r) => r.block), [4, 7]);
+          expect(app.preferredMfDumpFile, dump.path);
+          expect(app.terminalOutput, contains('Auth error - 原始输出'));
+        }
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        app.dispose();
+        await tester.pump();
+        locale.dispose();
+      }
+    });
+  }
+
   for (final systemLocale in [
     const Locale('fr', 'FR'),
     const Locale('zh', 'CN'),

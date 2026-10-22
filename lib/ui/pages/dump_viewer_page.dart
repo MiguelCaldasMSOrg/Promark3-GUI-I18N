@@ -2344,7 +2344,7 @@ class _DumpViewerPageState extends State<DumpViewerPage>
                     style:
                         const TextStyle(fontFamily: 'monospace', fontSize: 13),
                   ),
-                  Text(progress.currentStatus,
+                  Text(progress.localizedStatus(context.l10n),
                       style: TextStyle(fontSize: 12, color: Colors.grey[400])),
                   const SizedBox(height: 8),
                   // 逐块结果列表
@@ -2371,7 +2371,7 @@ class _DumpViewerPageState extends State<DumpViewerPage>
                                 style: const TextStyle(
                                     fontFamily: 'monospace', fontSize: 12)),
                             const SizedBox(width: 8),
-                            Text(r.message,
+                            Text(r.localizedMessage(context.l10n),
                                 style: TextStyle(
                                     fontSize: 11,
                                     color: r.success

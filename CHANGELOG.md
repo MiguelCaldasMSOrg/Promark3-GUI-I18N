@@ -6,6 +6,13 @@
 
 ### Fixed
 
+- Give HID Prox reader brute-force its own tab, heading and action labels,
+  without changing genuine key-recovery translations or PM3 command syntax.
+
+- Render retained write-back status and per-block outcomes in the current
+  language, including active, finished, cancelled and connection-lost sequences,
+  without clearing results or rewriting raw terminal output.
+
 - Report language-directory lookup failures as storage errors so startup
   reaches Settings and queued saves can recover when the directory is available.
 
@@ -29,7 +36,7 @@
   delegates, immediate language switching with a persistent system-default
   option, locale-aware command help and dump analysis, translation checks,
   bilingual UI coverage and an English README. The current catalogs contain
-  700 messages per language; native OS dialogs and raw client output are not
+  701 messages per language; native OS dialogs and raw client output are not
   translated by the GUI.
 
 - 从当前客户端 96 个帮助分组同步 1033 个终端命令条目，并提供 `tools/sync_command_catalog.dart` 更新工具；已有中文说明保留。

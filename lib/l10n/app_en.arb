@@ -2826,9 +2826,13 @@
   "@messageForExample2006ec0c86": {
     "description": "lf_hid_page: For example: 2006ec0c86"
   },
-  "messageBruteForceRecovery": "Brute-force recovery",
-  "@messageBruteForceRecovery": {
-    "description": "lf_hid_page: Brute-force recovery"
+  "hidReaderBruteForceTab": "Reader brute-force",
+  "@hidReaderBruteForceTab": {
+    "description": "HID Prox tab for trying facility-code/card-number combinations against a reader, not recovering cryptographic keys."
+  },
+  "hidReaderBruteForceTitle": "Brute-force facility codes / card numbers",
+  "@hidReaderBruteForceTitle": {
+    "description": "HID Prox reader brute-force form heading. This enumerates credential combinations, not cryptographic keys."
   },
   "messageFcOptional": "FC (optional)",
   "@messageFcOptional": {
@@ -2838,9 +2842,9 @@
   "@messageLeaveBlankToTryAllValues": {
     "description": "lf_hid_page: Leave blank to try all values"
   },
-  "messageStartRecovery": "Start recovery",
-  "@messageStartRecovery": {
-    "description": "lf_hid_page: Start recovery"
+  "hidStartBruteForce": "Start brute-force",
+  "@hidStartBruteForce": {
+    "description": "Start the HID Prox reader brute-force operation (lf hid brute), not key recovery."
   },
   "messageReadAHitagCard": "Read a Hitag card",
   "@messageReadAHitagCard": {

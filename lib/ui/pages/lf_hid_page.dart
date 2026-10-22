@@ -67,13 +67,13 @@ class _LfHidPageState extends State<LfHidPage>
       TabBar(controller: _tabController, tabs: [
         Tab(text: context.l10n.messageRead),
         Tab(text: context.l10n.messageCloneSimulate2),
-        Tab(text: context.l10n.messageKeyRecovery),
+        Tab(text: context.l10n.hidReaderBruteForceTab),
       ]),
       Expanded(
           child: TabBarView(controller: _tabController, children: [
         _buildReadTab(),
         _buildCloneSimTab(),
-        _buildCrackTab(),
+        _buildBruteForceTab(),
       ])),
     ]);
   }
@@ -162,7 +162,7 @@ class _LfHidPageState extends State<LfHidPage>
     );
   }
 
-  Widget _buildCrackTab() {
+  Widget _buildBruteForceTab() {
     return SplitPageLayout(
       sideWidth: 320,
       side: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -172,7 +172,7 @@ class _LfHidPageState extends State<LfHidPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(context.l10n.messageBruteForceRecovery,
+                    Text(context.l10n.hidReaderBruteForceTitle,
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     TextFormField(
@@ -190,7 +190,7 @@ class _LfHidPageState extends State<LfHidPage>
                         onPressed: () => _execute(
                             LfHidCmd.brute(fc: _fc.isEmpty ? null : _fc)),
                         icon: const Icon(Icons.bolt, size: 18),
-                        label: Text(context.l10n.messageStartRecovery)),
+                        label: Text(context.l10n.hidStartBruteForce)),
                   ],
                 ))),
       ]),

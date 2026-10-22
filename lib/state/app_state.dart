@@ -58,13 +58,15 @@ class NavigationIntent {
   });
 }
 
+enum WriteStatus { idle, writing, finished, cancelled, connectionLost }
+
 class WriteProgress {
   final int total;
   int completed;
   int succeeded;
   int failed;
-  bool cancelled;
-  String currentStatus;
+  WriteStatus status;
+  int currentBlock;
   final List<WriteBlockResult> results;
 
   WriteProgress({
@@ -72,24 +74,39 @@ class WriteProgress {
     this.completed = 0,
     this.succeeded = 0,
     this.failed = 0,
-    this.cancelled = false,
-    this.currentStatus = '',
+    this.status = WriteStatus.idle,
+    this.currentBlock = 0,
     List<WriteBlockResult>? results,
   }) : results = results ?? [];
 
   double get progress => total > 0 ? completed / total : 0;
+  bool get cancelled =>
+      status == WriteStatus.cancelled || status == WriteStatus.connectionLost;
   bool get isRunning => !cancelled && completed < total;
+
+  String localizedStatus(AppLocalizations l10n) => switch (status) {
+        WriteStatus.idle => '',
+        WriteStatus.writing =>
+          l10n.messageWritingBlock(currentBlock.toString()),
+        WriteStatus.finished => l10n.messageFinishedSucceededFailed(
+            succeeded.toString(), failed.toString()),
+        WriteStatus.cancelled => l10n.messageCancelled,
+        WriteStatus.connectionLost =>
+          l10n.messageConnectionLostOperationAborted,
+      };
 }
 
 class WriteBlockResult {
   final int block;
   final bool success;
-  final String message;
   const WriteBlockResult({
     required this.block,
     required this.success,
-    required this.message,
   });
+
+  String localizedMessage(AppLocalizations l10n) => success
+      ? l10n.messageWriteSuccessful
+      : l10n.messageAuthenticationOrWritingFailed;
 }
 
 class AppState extends ChangeNotifier with LocalizedMessages {
@@ -313,13 +330,14 @@ class AppState extends ChangeNotifier with LocalizedMessages {
     for (final (block, cmd) in commands) {
       if (progress.cancelled) break;
       if (!isConnected) {
-        progress.currentStatus = l10n.messageConnectionLostOperationAborted;
-        progress.cancelled = true;
+        progress.status = WriteStatus.connectionLost;
         notifyListeners();
         break;
       }
 
-      progress.currentStatus = l10n.messageWritingBlock((block).toString());
+      progress
+        ..status = WriteStatus.writing
+        ..currentBlock = block;
       notifyListeners();
 
       await sendCommand(cmd);
@@ -337,14 +355,12 @@ class AppState extends ChangeNotifier with LocalizedMessages {
         progress.results.add(WriteBlockResult(
           block: block,
           success: false,
-          message: l10n.messageAuthenticationOrWritingFailed,
         ));
       } else {
         progress.succeeded++;
         progress.results.add(WriteBlockResult(
           block: block,
           success: true,
-          message: l10n.messageWriteSuccessful,
         ));
       }
       progress.completed++;
@@ -352,8 +368,7 @@ class AppState extends ChangeNotifier with LocalizedMessages {
     }
 
     if (!progress.cancelled) {
-      progress.currentStatus = l10n.messageFinishedSucceededFailed(
-          (progress.succeeded).toString(), (progress.failed).toString());
+      progress.status = WriteStatus.finished;
     }
     notifyListeners();
     return progress;
@@ -361,8 +376,7 @@ class AppState extends ChangeNotifier with LocalizedMessages {
 
   void cancelWriteSequence() {
     if (writeProgress != null && writeProgress!.isRunning) {
-      writeProgress!.cancelled = true;
-      writeProgress!.currentStatus = l10n.messageCancelled;
+      writeProgress!.status = WriteStatus.cancelled;
       notifyListeners();
     }
   }

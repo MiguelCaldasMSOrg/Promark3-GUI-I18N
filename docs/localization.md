@@ -4,7 +4,7 @@
 
 PR #27 adds English alongside Simplified Chinese without changing PM3 commands,
 protocol identifiers, dump formats or raw client output. There are currently
-700 messages in each catalog; `tools/check_localizations.dart` reports the
+701 messages in each catalog; `tools/check_localizations.dart` reports the
 authoritative count. This is development/Unreleased content, not evidence that
 an older release archive contains these features.
 
@@ -34,6 +34,11 @@ This project follows Flutter's official
   Chinese default preserves existing non-UI caller behavior.
 - Dump-analysis caches include the locale; terminal suggestions are reloaded
   on locale changes with stale asynchronous results discarded.
+- Write-back progress stores a locale-independent status, current block and
+  per-block outcomes. The viewer formats these with `context.l10n` on display,
+  so active, finished, cancelled and connection-lost sequences follow language
+  changes without clearing results or restarting commands. Raw terminal output
+  remains unchanged.
 - `Pm3Process` depends only on Dart SDK libraries and the pure-Dart
   `Pm3ProcessMessages` contract. Its Chinese defaults preserve standalone-tool
   behavior. `DesktopCliBackend` injects `LocalizedPm3ProcessMessages` to adapt
@@ -45,6 +50,11 @@ This project follows Flutter's official
 - The DESFire Applications tab uses `desfireApplicationsTab`; the editor's Apply
   verb remains `messageApply`. Shared source-language spelling is not sufficient
   reason to merge resources.
+- HID Prox reader brute-force uses the dedicated `hidReaderBruteForceTab`,
+  `hidReaderBruteForceTitle` and `hidStartBruteForce` resources. These describe
+  facility-code/card-number enumeration against a reader, not cryptographic key
+  recovery. Shared key-recovery wording remains available for genuine
+  key-recovery workflows.
 
 ## Editing messages
 
@@ -90,7 +100,9 @@ ICU syntax and typed placeholders. Tests cover both languages on all 30 pages,
 live switching, data retention, persistence, failure reporting, locale fallback,
 framework strings, command-help language and locale-aware analysis.
 The current page/tab smoke tests use a 1500 × 1100 viewport; the dedicated
-DESFire label tests use 1200 × 900. These are not a substitute for exercising
+DESFire/HID label tests use 1200 × 900. Loaded-dump write-progress tests use
+1600 × 1100 to accommodate the fixed-width test font in the existing toolbar.
+These are not a substitute for exercising
 default/smaller desktop windows, text scaling, dialogs and real hardware.
 
 The focused regression files are:
@@ -103,6 +115,9 @@ The focused regression files are:
 | Standalone message defaults and Flutter adapter | `test/l10n/pm3_process_messages_test.dart` |
 | English import errors and atomicity | `test/models/command_card_test.dart` |
 | Applications versus Apply | `test/ui/hf_mfdes_page_test.dart` |
+| HID reader brute-force labels, language switching and unchanged command syntax | `test/ui/lf_hid_page_test.dart` |
+| Locale-independent write states, mixed block results, cancellation and connection loss | `test/state/write_progress_test.dart` |
+| Retained write-back progress/results after Settings language changes | `test/l10n/localization_test.dart` |
 | Actual standalone Dart usage/failure paths | `test/tools/sync_command_catalog_test.dart` |
 
 The existing Windows batch-handshake fixture has an intermittent failure that
@@ -112,16 +127,6 @@ it fails. Linux builds and real-device operations require their own evidence.
 
 Use wrapping or flexible layouts for captions that expand in translation.
 Do not shorten safety warnings to make them fit.
-
-## Known limitations
-
-The feature-quality review of PR #27 at `d126451` identified one outstanding
-English label issue in [the HID Prox page](../lib/ui/pages/lf_hid_page.dart):
-the third tab says **Key recovery**, but `lf hid brute` probes a reader using
-facility-code/card-number combinations; it does not recover cryptographic keys.
-That workflow needs its own reader-brute-force labels rather than reusing the
-key-recovery wording. This documentation refresh records the issue; it does not
-change the application code.
 
 ## Adding a language
 
