@@ -215,7 +215,9 @@ class CommandCard with LocalizedMessages {
     if (cardType == null) {
       throw FormatException(l10n.messageUnsupportedCardCapacity);
     }
-    final parsed = CommandCard()..clear(cardType: cardType);
+    final parsed = CommandCard()
+      ..updateLocalizations(l10n)
+      ..clear(cardType: cardType);
     parsed.uid = json['uid'] as String;
     if (parsed.uid.isNotEmpty &&
         !RegExp(r'^(?:[0-9A-F]{8}|[0-9A-F]{14}|[0-9A-F]{20})$')
@@ -255,7 +257,9 @@ class CommandCard with LocalizedMessages {
   }
 
   void importCard(MifareCard card) {
-    final parsed = CommandCard()..clear(cardType: card.cardType);
+    final parsed = CommandCard()
+      ..updateLocalizations(l10n)
+      ..clear(cardType: card.cardType);
     for (var b = 0; b < card.blocks.length; b++) {
       parsed.editBlock(b, card.blocks[b]);
     }
